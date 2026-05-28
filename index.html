@@ -41,36 +41,34 @@
 
   .pax-bar {
     background: #fff; border-bottom: 1px solid #e5e7eb;
-    padding: 10px 24px; display: flex; align-items: center; gap: 16px;
+    padding: 10px 20px; display: flex; align-items: center; gap: 12px;
+    overflow-x: auto; white-space: nowrap; scroll-snap-type: x proximity;
   }
-  .seat-count { font-size: 13px; font-weight: 600; color: #333; border-right: 1px solid #ddd; padding-right: 16px; min-width: 80px; line-height: 1.5; }
-  .pax-card { border: 1.5px solid #e8630a; border-radius: 8px; padding: 6px 16px; background: #fff; cursor: pointer; transition: all 0.15s; }
+  .seat-count { font-size: 13px; font-weight: 600; color: #333; border-right: 1px solid #ddd; padding-right: 16px; min-width: 90px; line-height: 1.5; flex: 0 0 auto; }
+  .pax-card { border: 1.5px solid #e8630a; border-radius: 8px; padding: 10px 16px; background: #fff; cursor: pointer; transition: all 0.15s; flex: 0 0 auto; min-width: 170px; scroll-snap-align: start; }
   .pax-card:hover { background: #fff8f2; }
   .pax-card.active { background: #e8630a; }
   .pax-card.active .pax-name { color: #fff; }
-  .pax-card.active .pax-action { color: rgba(255,255,255,0.8); }
+  .pax-card.active .pax-action { color: rgba(255,255,255,0.9); }
+  .pax-card.has-seat .pax-action { color: #555; }
   .pax-name { font-size: 13px; font-weight: 700; color: #222; }
-  .pax-action { font-size: 11px; color: #999; }
-  .pax-seat { font-size: 11px; color: #e8630a; font-weight: 600; }
+  .pax-action { font-size: 11px; color: #999; margin-top: 4px; }
+  .pax-seat { display: none; font-size: 11px; color: #e8630a; font-weight: 700; margin-top: 6px; }
+  .pax-card.has-seat .pax-seat { display: block; }
 
   .promo-bar {
     background: #fff8f2; border-bottom: 1px solid #fcd6b0;
-    padding: 8px 24px; display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 20px; display: flex; align-items: center; justify-content: space-between;
+    width: 100%;
   }
   .promo-text { font-size: 12px; color: #c05000; font-weight: 500; }
   .legend { display: flex; gap: 16px; align-items: center; }
   .leg-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #555; }
   .leg-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid; }
 
-  .main { display: flex; background: #f0f0f0; min-height: calc(100vh - 185px); }
-  .flight-label {
-    writing-mode: vertical-rl; transform: rotate(180deg);
-    font-size: 11px; font-weight: 700; color: #aaa; letter-spacing: 2px;
-    padding: 20px 4px; background: #fff; border-right: 1px solid #e5e7eb;
-    display: flex; align-items: center; justify-content: center;
-    user-select: none; min-width: 28px;
-  }
-  .seatmap-area { flex: 1; overflow-x: auto; padding: 16px 24px; text-align: center; }
+  .main { background: #f0f0f0; min-height: calc(100vh - 170px); }
+  .seatmap-area { width: 100%; overflow-x: auto; padding: 16px 18px 24px; text-align: center; display: flex; justify-content: flex-start; }
+  .aircraft-wrap { display: block; width: max-content; min-width: auto; max-width: 100%; margin: 0 auto; transform-origin: top center; }
 
   #loading { text-align: center; padding: 40px; color: #888; font-size: 14px; }
   #error-box {
@@ -81,9 +79,7 @@
   #error-box strong { color: #c00; font-size: 15px; display: block; margin-bottom: 8px; }
   #error-box code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 12px; }
 
-  .aircraft-wrap { display: inline-block; min-width: 500px; }
-  .aircraft-wrap { transform-origin: top center; transition: transform 0.22s ease; }
-  .seat-row { transition: margin-left 0.22s ease; }
+  .seat-row { transition: none; }
   .col-headers { display: flex; align-items: center; gap: 3px; margin-bottom: 4px; padding-left: 28px; }
   .col-hdr { width: 38px; text-align: center; font-size: 11px; font-weight: 700; color: #666; }
   .aisle-space { width: 22px; flex-shrink: 0; }
@@ -133,6 +129,11 @@
   .btn-action.btn-secondary:hover {
     background: #fff8f2;
   }
+  .btn-action.btn-text {
+    background: transparent; border: none; color: #555;
+    font-weight: 700; opacity: 0.85;
+  }
+  .btn-action.btn-text:hover { opacity: 1; text-decoration: underline; }
   .btn-action.btn-primary:hover { background: #c95500; }
   .price-display { text-align: left; }
   .price-total { font-size: 20px; font-weight: 800; color: #e8630a; }
@@ -141,10 +142,12 @@
   .sector-card {
     display: flex; align-items: center; justify-content: space-between;
     gap: 18px; background: #fff; border: 1.5px solid #e5e7eb;
-    border-radius: 14px; padding: 16px 24px; margin: 16px 24px 0;
+    border-radius: 14px; padding: 16px 20px; margin: 16px auto 0;
+    max-width: 100%; width: calc(100% - 20px);
   }
   .sector-info { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-  .sector-route { font-size: 16px; font-weight: 700; color: #1a1a2e; }
+  .sector-route { font-size: 18px; font-weight: 700; color: #1a1a2e; }
+  .sector-legs { color: #555; font-size: 13px; line-height: 1.4; }
   .sector-meta { display: flex; flex-wrap: wrap; gap: 10px; color: #555; font-size: 12px; }
   .sector-pill { background: #fff8f2; color: #c05000; border-radius: 999px; padding: 6px 10px; font-weight: 700; display: inline-flex; align-items: center; }
   .btn-cancel { background: transparent; border: 1.5px solid #ccc; color: #555; padding: 10px 18px; border-radius: 999px; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
@@ -209,6 +212,7 @@
 
   /* Small Tablet / Large Mobile (600px - 767px) */
   @media (max-width: 768px) {
+    .navbar { display: none; }
     .navbar-left { gap: 12px; }
     .nav-links { gap: 6px; display: none; }
     .nav-links a { font-size: 10px; }
@@ -234,6 +238,7 @@
       flex-direction: column;
       align-items: flex-start;
       gap: 8px;
+      width: 100%;
     }
     .promo-text { font-size: 10px; }
     .legend { gap: 10px; flex-wrap: wrap; }
@@ -255,7 +260,8 @@
       padding: 8px 12px;
       flex-wrap: wrap;
       gap: 8px;
-      flex-direction: row;
+      flex-direction: column;
+      align-items: stretch;
     }
     .disclaimer { 
       font-size: 8px; 
@@ -278,9 +284,10 @@
       min-width: 60px;
     }
     .price-display { 
-      text-align: center;
+      text-align: left;
       order: 1;
-      min-width: 70px;
+      width: 100%;
+      min-width: auto;
     }
     .price-total { font-size: 15px; }
     .price-link { font-size: 8px; }
@@ -290,10 +297,17 @@
   @media (max-width: 600px) {
     * { box-sizing: border-box; }
     
-    .navbar {
-      padding: 0 10px;
-      height: 44px;
+    .navbar { display: none; }
+    
+    .pax-bar {
+      padding: 6px 8px;
+      flex-wrap: nowrap;
+      gap: 8px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
     }
+    .pax-card { min-width: 140px; }
     .logo-icon { font-size: 20px; }
     .logo-text { display: none; }
     .navbar-right { gap: 6px; }
@@ -306,15 +320,17 @@
     
     .pax-bar {
       padding: 6px 10px;
-      flex-direction: column;
+      flex-wrap: nowrap;
       gap: 8px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .seat-count { 
       font-size: 10px; 
-      min-width: 60px;
-      padding-bottom: 6px;
-      border-bottom: 1px solid #ddd;
-      width: 100%;
+      min-width: 70px;
+      padding-bottom: 0;
+      border-bottom: none;
+      width: auto;
       line-height: 1.3;
     }
     .pax-card { padding: 4px 8px; border-radius: 5px; }
@@ -333,16 +349,13 @@
     .leg-swatch { width: 10px; height: 10px; }
     
     .main { min-height: calc(100vh - 140px); }
-    .flight-label { 
-      min-width: 22px; 
-      padding: 10px 2px;
-      font-size: 8px;
-    }
     
     .seatmap-area { 
+      width: 100%;
       padding: 8px 10px;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
+      justify-content: flex-start;
     }
     
     .seat { 
@@ -401,11 +414,13 @@
 
   /* Small Mobile (< 480px) */
   @media (max-width: 480px) {
-    .navbar {
-      padding: 0 6px;
-      height: 40px;
-      gap: 6px;
-    }
+    .navbar { display: none; }
+    .pax-bar { padding: 5px 6px; }
+    .pax-card { min-width: 130px; }
+    .seatmap-area { width: 100%; padding: 6px 4px; width: 100%; }
+    .col-headers { padding-left: 14px; gap: 15px; }
+    .bottom-bar { padding: 6px 6px; }
+    .action-area { justify-content: space-between; }
     .logo-icon { font-size: 18px; }
     .navbar-right { gap: 4px; }
     .btn-login { 
@@ -418,15 +433,17 @@
     .pax-bar { 
       padding: 5px 6px;
       gap: 6px;
-      flex-direction: column;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .seat-count { 
       font-size: 9px;
       min-width: 55px;
       line-height: 1.2;
-      border-bottom: 1px solid #ddd;
-      padding-bottom: 5px;
-      width: 100%;
+      border-bottom: none;
+      padding-bottom: 0;
+      width: auto;
     }
     .pax-card { padding: 4px 6px; }
     .pax-name { font-size: 10px; }
@@ -444,11 +461,6 @@
     .leg-swatch { width: 9px; height: 9px; }
     
     .main { min-height: calc(100vh - 120px); }
-    .flight-label { 
-      min-width: 18px; 
-      padding: 8px 1px;
-      font-size: 7px;
-    }
     
     .seatmap-area { 
       padding: 6px 4px;
@@ -466,8 +478,8 @@
     .exit-lbl { width: 23px; font-size: 5px; }
     .exit-spacer { width: 23px; }
     .aisle-space { width: 10px; }
-    .col-headers { padding-left: 16px; gap: 1.5px; }
-    .exit-label-row { padding-left: 16px; gap: 1.5px; }
+    .col-headers { padding-left: 18px; gap: 17px; }
+    .exit-label-row { padding-left: 14px; gap: 1.5px; }
     .row-num { width: 13px; font-size: 6px; padding-right: 1px; }
     .seat-row { gap: 1.5px; margin: 0.5px 0; }
     
@@ -497,6 +509,8 @@
       font-size: 11px;
       border-radius: 3px;
       border: 1.5px solid #c95500;
+      flex: 1;
+      min-width: 0;
     }
     .price-display { 
       text-align: center;
@@ -527,47 +541,22 @@
 </head>
 <body>
 
-<nav class="navbar">
-  <div class="navbar-left">
-    <a class="logo" href="#">
-      <span class="logo-icon">A</span>
-      <div class="logo-text">
-        <span class="logo-name">Akasa Air</span>
-        <span class="logo-tagline">It's Your Sky</span>
-      </div>
-    </a>
-    <div class="nav-links">
-      <a href="#">Book</a>
-      <a href="#">Manage Booking</a>
-      <a href="#">Check-in</a>
-      <a href="#">Add-Ons</a>
-      <a href="#">Offers</a>
-      <a href="#">Tariff</a>
-      <a href="#">Contact Us</a>
-    </div>
-  </div>
-  <div class="navbar-right">
-    <button class="btn-login">Login ▾</button>
-    <button class="theme-toggle">◑</button>
-  </div>
-</nav>
-
 <div class="pax-bar">
   <div class="seat-count" id="seat-count-display">0/3 Seats<br>selected</div>
   <div class="pax-card active" id="pax-1" data-pax="1">
     <div class="pax-name">Passenger 1</div>
     <div class="pax-action">Select Seat</div>
-    <div class="pax-seat" id="pax-1-seat" style="display:none;"></div>
+    <div class="pax-seat" id="pax-1-seat"></div>
   </div>
   <div class="pax-card" id="pax-2" data-pax="2">
     <div class="pax-name">Passenger 2</div>
     <div class="pax-action">Select Seat</div>
-    <div class="pax-seat" id="pax-2-seat" style="display:none;"></div>
+    <div class="pax-seat" id="pax-2-seat"></div>
   </div>
   <div class="pax-card" id="pax-3" data-pax="3">
     <div class="pax-name">Passenger 3</div>
     <div class="pax-action">Select Seat</div>
-    <div class="pax-seat" id="pax-3-seat" style="display:none;"></div>
+    <div class="pax-seat" id="pax-3-seat"></div>
   </div>
 </div>
 
@@ -582,18 +571,18 @@
 
 <div class="sector-card">
   <div class="sector-info">
-    <div class="sector-route" id="sector-route">BOM → AMD</div>
+    <div class="sector-route" id="sector-route">Selected route</div>
+    <div class="sector-legs" id="sector-legs">BOM → AMD</div>
     <div class="sector-meta">
       <span class="sector-pill" id="sector-flight">Flight 194 HGW</span>
       <span class="sector-pill" id="sector-class">Economy</span>
       <span class="sector-pill" id="sector-equipment">7WH</span>
     </div>
   </div>
-  <button class="btn-cancel" onclick="cancelSelection()">Cancel</button>
+  <button class="btn-cancel btn-text" onclick="skipSelection()">Skip</button>
 </div>
 
 <div class="main">
-  <div class="flight-label" id="flight-label">QP1107</div>
   <div class="seatmap-area">
     <div id="loading">Loading seat map…</div>
     <div id="error-box"></div>
@@ -611,13 +600,12 @@
       <div class="price-total" id="price-display">₹5,805</div>
       <div class="price-link">View summary</div>
     </div>
-    <div class="disclaimer">
-      If your prebooked seat is unavailable due to operational reasons, we will provide you with an alternate seat, or a full refund of your seat fee.
-    </div>
+    
   </div>
   <div class="action-area">
-    <button class="btn-action btn-secondary" onclick="goBack()">Back</button>
-    <button class="btn-action btn-primary" onclick="confirmSeat()">Confirm Seat</button>
+      <button class="btn-action btn-secondary" onclick="goBack()">Back</button>
+    <button class="btn-action btn-text" onclick="skipSelection()">Skip</button>
+    <button class="btn-action btn-primary" style="display: inline-flex;justify-content: center;align-items: center; text-wrap: wrap;" onclick="confirmSeat() ">Confirm seat</button>
   </div>
 </div>
 
@@ -751,16 +739,44 @@ function parseSeatMap(data) {
   });
 
   const sortedRows = Object.keys(rowMap).map(Number).sort((a,b) => a-b);
-  const flightName = root?.name ?? '';
-  if (flightName) document.getElementById('flight-label').textContent = flightName;
-
   return { rowMap, sortedRows };
 }
 
 function renderSectorInfo(data) {
   const root = data?.seatMap ?? data;
-  const route = root?.departureStation && root?.arrivalStation ? `${root.departureStation} → ${root.arrivalStation}` : 'Sector details';
-  document.getElementById('sector-route').textContent = route;
+  const routeParts = [];
+
+  const labelForSegment = seg => {
+    if (!seg) return null;
+    const from = seg.departureStation || seg.origin || seg.from;
+    const to = seg.arrivalStation || seg.destination || seg.to;
+    if (from && to) return `${from} → ${to}`;
+    return null;
+  };
+
+  if (Array.isArray(root?.segments) && root.segments.length) {
+    root.segments.forEach(seg => {
+      const path = labelForSegment(seg);
+      if (path) routeParts.push(path);
+    });
+  } else if (Array.isArray(root?.legs) && root.legs.length) {
+    root.legs.forEach(seg => {
+      const path = labelForSegment(seg);
+      if (path) routeParts.push(path);
+    });
+  } else if (Array.isArray(root?.journeys) && root.journeys.length) {
+    root.journeys.forEach(j => {
+      const path = labelForSegment(j);
+      if (path) routeParts.push(path);
+    });
+  }
+
+  if (routeParts.length === 0 && root?.departureStation && root?.arrivalStation) {
+    routeParts.push(`${root.departureStation} → ${root.arrivalStation}`);
+  }
+
+  document.getElementById('sector-route').textContent = routeParts.length === 1 ? 'Selected route' : 'Selected connections';
+  document.getElementById('sector-legs').textContent = routeParts.join('  ·  ') || 'Route details unavailable';
   document.getElementById('sector-flight').textContent = root?.name ? `Flight ${root.name}` : 'Flight details';
   document.getElementById('sector-class').textContent = root?.travelClassCode ?? 'Economy';
   document.getElementById('sector-equipment').textContent = root?.equipmentType ?? '';
@@ -850,43 +866,9 @@ function renderSeatMap({ rowMap, sortedRows }) {
 
     prevExitRow = isExitRow;
   });
-  
-  // Apply a gentle curved layout from front -> tail
-  try { applyCurve(root); } catch(e) { /* fail silently */ }
 
 }
 
-// Visual curve helper: offsets rows progressively from the front (top)
-function applyCurve(rootEl) {
-  if (!rootEl) rootEl = document.getElementById('seatmap-root');
-  if (!rootEl) return;
-  const rows = Array.from(rootEl.querySelectorAll('.seat-row'));
-  if (rows.length === 0) return;
-
-  const n = rows.length;
-  const maxOffset = Math.min(280, Math.round(rootEl.clientWidth * 0.24));
-
-  rows.forEach((rowEl, idx) => {
-    const t = idx / Math.max(1, n - 1); // 0..1
-    const ease = 1 - Math.cos((t * Math.PI) / 2);
-    const curve = Math.pow(ease, 1.4);
-    const offset = Math.round(curve * maxOffset);
-    rowEl.style.marginLeft = offset + 'px';
-  });
-
-  const hdr = rootEl.querySelector('.col-headers');
-  if (hdr) hdr.style.marginLeft = '0px';
-}
-
-// Re-apply curve on window resize (throttled)
-let __curveResizeTimer = null;
-window.addEventListener('resize', () => {
-  clearTimeout(__curveResizeTimer);
-  __curveResizeTimer = setTimeout(() => {
-    const root = document.getElementById('seatmap-root');
-    if (root) applyCurve(root);
-  }, 120);
-});
 function buildExitLabelRow(rowData, LEFT, RIGHT, isBefore) {
   const wrap = document.createElement('div');
   wrap.className = 'exit-label-row';
@@ -1045,12 +1027,19 @@ function updateUI() {
   
   // Update each passenger card with their selected seat
   for (let i = 1; i <= 3; i++) {
+    const card = document.getElementById(`pax-${i}`);
     const seatDiv = document.getElementById(`pax-${i}-seat`);
     if (paxSeats[i].seat) {
-      seatDiv.textContent = paxSeats[i].seat;
+      seatDiv.textContent = `Seat ${paxSeats[i].seat}`;
       seatDiv.style.display = 'block';
+      card.classList.add('has-seat');
+      const actionEl = card.querySelector('.pax-action');
+      if (actionEl) actionEl.textContent = 'Selected seat';
     } else {
       seatDiv.style.display = 'none';
+      card.classList.remove('has-seat');
+      const actionEl = card.querySelector('.pax-action');
+      if (actionEl) actionEl.textContent = 'Select seat';
     }
   }
   
@@ -1086,6 +1075,12 @@ function goBack() {
   if (window.history.length > 1) window.history.back();
   else alert('Use browser navigation or close this window to exit the seat selection flow.');
 }
+function skipSelection() {
+  if (confirm('Skip seat selection and continue without choosing a seat?')) {
+    goBack();
+  }
+}
+
 function cancelSelection() { goBack(); }
 
 function confirmSeat() {
