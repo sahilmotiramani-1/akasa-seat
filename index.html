@@ -45,16 +45,36 @@
     overflow-x: auto; white-space: nowrap; scroll-snap-type: x proximity;
   }
   .seat-count { font-size: 13px; font-weight: 600; color: #333; border-right: 1px solid #ddd; padding-right: 16px; min-width: 90px; line-height: 1.5; flex: 0 0 auto; }
-  .pax-card { border: 1.5px solid #e8630a; border-radius: 8px; padding: 10px 16px; background: #fff; cursor: pointer; transition: all 0.15s; flex: 0 0 auto; min-width: 170px; scroll-snap-align: start; }
+  
+  /* CHANGE 1: Passenger card - improved selected state with white text and "Change Seat" link */
+  .pax-card { 
+    border: 1.5px solid #e8630a; border-radius: 8px; padding: 10px 16px; 
+    background: #fff; cursor: pointer; transition: all 0.15s; 
+    flex: 0 0 auto; min-width: 170px; scroll-snap-align: start; 
+  }
   .pax-card:hover { background: #fff8f2; }
-  .pax-card.active { background: #e8630a; }
-  .pax-card.active .pax-name { color: #fff; }
-  .pax-card.active .pax-action { color: rgba(255,255,255,0.9); }
-  .pax-card.has-seat .pax-action { color: #555; }
+  /* .pax-card.active { background: #e8630a; } */
+  /* .pax-card.active .pax-name { color: #fff; } */
+  /* .pax-card.active .pax-action { color: rgba(255,255,255,0.85); } */
+  /* When active AND has seat, show seat info in white */
+  /* .pax-card.active.has-seat .pax-seat { color: #fff; font-weight: 700; } */
+  /* .pax-card.active.has-seat .pax-change { color: rgba(255,255,255,0.85); } */
+  When inactive and has seat
+  .pax-card.has-seat .pax-seat { color: #1a1a2e; font-weight: 700; }
+  .pax-card.has-seat .pax-change { color: #5c0fd9; }
+  /* var(--color-text-tertiary) */
+
   .pax-name { font-size: 13px; font-weight: 700; color: #222; }
-  .pax-action { font-size: 11px; color: #999; margin-top: 4px; }
-  .pax-seat { display: none; font-size: 11px; color: #e8630a; font-weight: 700; margin-top: 6px; }
-  .pax-card.has-seat .pax-seat { display: block; }
+  .pax-action { font-size: 11px; color: #999; margin-top: 2px; }
+  /* Hide pax-action when seat is selected */
+  .pax-card.has-seat .pax-action { display: none; }
+
+  .pax-seat-row { display: none; margin-top: 4px; }
+  .pax-card.has-seat .pax-seat-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .pax-seat { font-size: 10px; color:#777}
+  .pax-seat-detail { font-size: 10px; color: #777; }
+  /* .pax-card.active .pax-seat-detail { color: rgba(255,255,255,0.75); } */
+  .pax-change { font-size: 10px; text-decoration: underline; cursor: pointer; white-space: nowrap; }
 
   .promo-bar {
     background: #fff8f2; border-bottom: 1px solid #fcd6b0;
@@ -70,6 +90,16 @@
   .seatmap-area { width: 100%; overflow-x: auto; padding: 16px 18px 24px; text-align: center; display: flex; justify-content: flex-start; }
   .aircraft-wrap { display: block; width: max-content; min-width: auto; max-width: 100%; margin: 0 auto; transform-origin: top center; }
 
+  .seat-info {
+  display: flex;
+  align-items: center;
+}
+
+.separator {
+  font-size: 10px;
+  color: #777;
+  margin: 0 2px;
+}
   #loading { text-align: center; padding: 40px; color: #888; font-size: 14px; }
   #error-box {
     display: none; margin: 20px; padding: 20px;
@@ -110,35 +140,7 @@
   }
   .exit-spacer { width: 38px; flex-shrink: 0; }
 
-  .bottom-bar {
-    background: #fff; border-top: 2px solid #e5e7eb;
-    padding: 12px 24px; display: flex; align-items: center; justify-content: space-between;
-    position: sticky; bottom: 0; z-index: 100;
-  }
-  .bottom-left { display: flex; flex-direction: column; gap: 10px; max-width: calc(100% - 240px); }
-  .disclaimer { font-size: 11px; color: #888; max-width: 520px; line-height: 1.5; }
-  .action-area { display: flex; align-items: center; gap: 12px; }
-  .btn-action {
-    background: #e8630a; color: #fff; border: none; padding: 10px 24px;
-    border-radius: 5px; font-size: 14px; font-weight: 700; cursor: pointer;
-    transition: background 0.15s;
-  }
-  .btn-action.btn-secondary {
-    background: #fff; color: #e8630a; border: 1.5px solid #e8630a;
-  }
-  .btn-action.btn-secondary:hover {
-    background: #fff8f2;
-  }
-  .btn-action.btn-text {
-    background: transparent; border: none; color: #555;
-    font-weight: 700; opacity: 0.85;
-  }
-  .btn-action.btn-text:hover { opacity: 1; text-decoration: underline; }
-  .btn-action.btn-primary:hover { background: #c95500; }
-  .price-display { text-align: left; }
-  .price-total { font-size: 20px; font-weight: 800; color: #e8630a; }
-  .price-link { font-size: 11px; color: #888; cursor: pointer; text-decoration: underline; }
-
+  /* CHANGE 2: Sector card - only show flight number pill, remove Economy and equipment pills */
   .sector-card {
     display: flex; align-items: center; justify-content: space-between;
     gap: 18px; background: #fff; border: 1.5px solid #e5e7eb;
@@ -150,8 +152,39 @@
   .sector-legs { color: #555; font-size: 13px; line-height: 1.4; }
   .sector-meta { display: flex; flex-wrap: wrap; gap: 10px; color: #555; font-size: 12px; }
   .sector-pill { background: #fff8f2; color: #c05000; border-radius: 999px; padding: 6px 10px; font-weight: 700; display: inline-flex; align-items: center; }
+  /* CHANGE 3: Multi-sector support - show sector tabs if multiple sectors */
+  .sector-tabs { display: flex; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+  .sector-tab { 
+    padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    cursor: pointer; border: 1.5px solid #e8630a; color: #e8630a; background: #fff;
+    transition: all 0.15s;
+  }
+  .sector-tab.active { background: #e8630a; color: #fff; }
   .btn-cancel { background: transparent; border: 1.5px solid #ccc; color: #555; padding: 10px 18px; border-radius: 999px; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
   .btn-cancel:hover { background: #f9f9f9; border-color: #bbb; }
+
+  /* CHANGE 4: Bottom bar - remove Skip button, improve spacing, single line */
+  .bottom-bar {
+    background: #fff; border-top: 2px solid #e5e7eb;
+    padding: 12px 24px; display: flex; align-items: center; justify-content: space-between;
+    position: sticky; bottom: 0; z-index: 100;
+  }
+  .bottom-left { display: flex; flex-direction: column; gap: 4px; }
+  .disclaimer { font-size: 11px; color: #888; max-width: 520px; line-height: 1.5; }
+  .action-area { display: flex; align-items: center; gap: 16px; }
+  .btn-action {
+    background: #e8630a; color: #fff; border: none; padding: 10px 28px;
+    border-radius: 5px; font-size: 14px; font-weight: 700; cursor: pointer;
+    transition: background 0.15s; white-space: nowrap;
+  }
+  .btn-action.btn-secondary {
+    background: #fff; color: #e8630a; border: 1.5px solid #e8630a;
+  }
+  .btn-action.btn-secondary:hover { background: #fff8f2; }
+  .btn-action.btn-primary:hover { background: #c95500; }
+  .price-display { text-align: left; }
+  .price-total { font-size: 20px; font-weight: 800; color: #e8630a; }
+  .price-link { font-size: 11px; color: #888; cursor: pointer; text-decoration: underline; }
 
   .seat-tooltip {
     position: fixed; background: #222; color: #fff;
@@ -161,7 +194,6 @@
     line-height: 1.6;
   }
 
-  /* File picker fallback */
   #file-picker-area {
     display: none; margin: 20px; padding: 20px;
     background: #f0f7ff; border: 1.5px dashed #4a90e2; border-radius: 8px;
@@ -170,11 +202,7 @@
   #file-picker-area p { font-size: 13px; color: #555; margin-bottom: 12px; }
   #json-file-input { font-size: 13px; }
 
-  /* ────────────────────────────────────────────── */
-  /* RESPONSIVE DESIGN - TABLET & MOBILE           */
-  /* ────────────────────────────────────────────── */
-
-  /* Large Desktop (1200px+) */
+  /* RESPONSIVE */
   @media (max-width: 1400px) {
     .seat { width: 35px; height: 30px; font-size: 8px; }
     .col-hdr { width: 35px; }
@@ -182,71 +210,43 @@
     .exit-spacer { width: 35px; }
   }
 
-  /* Tablet (768px - 1199px) */
   @media (max-width: 1024px) {
     .navbar-left { gap: 20px; }
     .nav-links { gap: 12px; }
     .nav-links a { font-size: 12px; }
     .btn-login { font-size: 12px; padding: 5px 12px; }
-    
     .seat-count { font-size: 12px; min-width: 75px; }
     .pax-card { padding: 5px 12px; }
     .pax-name { font-size: 12px; }
     .pax-action { font-size: 10px; }
-    
     .seat { width: 32px; height: 28px; font-size: 7.5px; }
     .col-hdr { width: 32px; }
     .exit-lbl { width: 32px; }
     .exit-spacer { width: 32px; }
     .aisle-space { width: 18px; }
-    
     .promo-text { font-size: 11px; }
     .leg-item { font-size: 11px; }
     .leg-swatch { width: 12px; height: 12px; }
-    
     .disclaimer { font-size: 10px; max-width: 350px; }
-    .btn-action { padding: 8px 16px; font-size: 12px; }
+    .btn-action { padding: 8px 18px; font-size: 12px; }
     .price-total { font-size: 18px; }
     .price-link { font-size: 10px; }
   }
 
-  /* Small Tablet / Large Mobile (600px - 767px) */
   @media (max-width: 768px) {
     .navbar { display: none; }
-    .navbar-left { gap: 12px; }
-    .nav-links { gap: 6px; display: none; }
-    .nav-links a { font-size: 10px; }
-    
-    .pax-bar {
-      padding: 6px 12px;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
+    .pax-bar { padding: 6px 12px; flex-wrap: wrap; gap: 8px; }
     .seat-count { 
-      font-size: 10px; 
-      min-width: 65px; 
-      border-right: none;
-      padding-right: 0;
-      border-bottom: 1px solid #ddd;
-      padding-bottom: 6px;
-      width: 100%;
-      line-height: 1.3;
+      font-size: 10px; min-width: 65px; border-right: none;
+      padding-right: 0; border-bottom: 1px solid #ddd;
+      padding-bottom: 6px; width: 100%; line-height: 1.3;
     }
-    
-    .promo-bar {
-      padding: 6px 12px;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 8px;
-      width: 100%;
-    }
+    .promo-bar { padding: 6px 12px; flex-direction: column; align-items: flex-start; gap: 8px; width: 100%; }
     .promo-text { font-size: 10px; }
     .legend { gap: 10px; flex-wrap: wrap; }
     .leg-item { font-size: 10px; }
     .leg-swatch { width: 11px; height: 11px; }
-    
     .seatmap-area { padding: 10px 12px; }
-    
     .seat { width: 28px; height: 24px; font-size: 6.5px; }
     .col-hdr { width: 28px; font-size: 9px; }
     .exit-lbl { width: 28px; font-size: 7px; }
@@ -255,115 +255,32 @@
     .col-headers { padding-left: 20px; }
     .exit-label-row { padding-left: 20px; }
     .row-num { width: 18px; font-size: 8px; }
-    
-    .bottom-bar {
-      padding: 8px 12px;
-      flex-wrap: wrap;
-      gap: 8px;
-      flex-direction: column;
-      align-items: stretch;
-    }
-    .disclaimer { 
-      font-size: 8px; 
-      max-width: 100%;
-      line-height: 1.3;
-      order: 3;
-      width: 100%;
-      margin: 0;
-    }
-    .action-area {
-      order: 2;
-      flex-direction: row;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    .btn-action { 
-      padding: 6px 10px; 
-      font-size: 11px;
-      flex: 1;
-      min-width: 60px;
-    }
-    .price-display { 
-      text-align: left;
-      order: 1;
-      width: 100%;
-      min-width: auto;
-    }
+    .bottom-bar { padding: 8px 12px; flex-wrap: wrap; gap: 8px; flex-direction: column; align-items: stretch; }
+    .disclaimer { font-size: 8px; max-width: 100%; line-height: 1.3; order: 3; width: 100%; margin: 0; }
+    .action-area { order: 2; flex-direction: row; gap: 10px; flex-wrap: wrap; }
+    .btn-action { padding: 8px 14px; font-size: 12px; }
+    .price-display { text-align: left; order: 1; width: 100%; min-width: auto; }
     .price-total { font-size: 15px; }
     .price-link { font-size: 8px; }
   }
 
-  /* Mobile (480px - 599px) */
   @media (max-width: 600px) {
     * { box-sizing: border-box; }
-    
     .navbar { display: none; }
-    
-    .pax-bar {
-      padding: 6px 8px;
-      flex-wrap: nowrap;
-      gap: 8px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      width: 100%;
-    }
+    .pax-bar { padding: 6px 8px; flex-wrap: nowrap; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
     .pax-card { min-width: 140px; }
-    .logo-icon { font-size: 20px; }
-    .logo-text { display: none; }
-    .navbar-right { gap: 6px; }
-    .btn-login { 
-      padding: 4px 8px; 
-      font-size: 10px; 
-      border-radius: 12px;
-    }
-    .theme-toggle { width: 26px; height: 26px; font-size: 11px; }
-    
-    .pax-bar {
-      padding: 6px 10px;
-      flex-wrap: nowrap;
-      gap: 8px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    .seat-count { 
-      font-size: 10px; 
-      min-width: 70px;
-      padding-bottom: 0;
-      border-bottom: none;
-      width: auto;
-      line-height: 1.3;
-    }
+    .seat-count { font-size: 10px; min-width: 70px; padding-bottom: 0; border-bottom: none; width: auto; line-height: 1.3; }
     .pax-card { padding: 4px 8px; border-radius: 5px; }
     .pax-name { font-size: 11px; }
     .pax-action { font-size: 9px; }
-    
-    .promo-bar {
-      padding: 6px 10px;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 6px;
-    }
+    .promo-bar { padding: 6px 10px; flex-direction: column; align-items: flex-start; gap: 6px; }
     .promo-text { font-size: 9px; }
     .legend { gap: 8px; flex-wrap: wrap; }
     .leg-item { font-size: 9px; }
     .leg-swatch { width: 10px; height: 10px; }
-    
     .main { min-height: calc(100vh - 140px); }
-    
-    .seatmap-area { 
-      width: 100%;
-      padding: 8px 10px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      justify-content: flex-start;
-    }
-    
-    .seat { 
-      width: 26px; 
-      height: 22px; 
-      font-size: 6px;
-      border-radius: 3px;
-    }
+    .seatmap-area { width: 100%; padding: 8px 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; justify-content: flex-start; }
+    .seat { width: 26px; height: 22px; font-size: 6px; border-radius: 3px; }
     .col-hdr { width: 26px; font-size: 8px; }
     .exit-lbl { width: 26px; font-size: 6px; padding: 1px 0; }
     .exit-spacer { width: 26px; }
@@ -372,108 +289,27 @@
     .exit-label-row { padding-left: 20px; gap: 2px; }
     .row-num { width: 16px; font-size: 7px; padding-right: 2px; }
     .seat-row { gap: 2px; margin: 0.5px 0; }
-    
-    .bottom-bar {
-      padding: 8px 8px;
-      flex-direction: row;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .disclaimer { 
-      font-size: 7px; 
-      line-height: 1.2;
-      order: 3;
-      width: 100%;
-      margin: 0;
-    }
-    .action-area {
-      order: 2;
-      flex-direction: row;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    .btn-action { 
-      padding: 8px 12px; 
-      font-size: 12px;
-      border-radius: 4px;
-      white-space: nowrap;
-    }
-    .price-display { 
-      text-align: center;
-      order: 1;
-    }
+    .bottom-bar { padding: 8px 8px; flex-direction: row; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .disclaimer { font-size: 7px; line-height: 1.2; order: 3; width: 100%; margin: 0; }
+    .action-area { order: 2; flex-direction: row; gap: 8px; flex-wrap: wrap; }
+    .btn-action { padding: 8px 14px; font-size: 12px; border-radius: 4px; white-space: nowrap; }
+    .price-display { text-align: center; order: 1; }
     .price-total { font-size: 16px; }
     .price-link { font-size: 8px; }
-    
     #error-box { margin: 10px; padding: 10px; font-size: 11px; }
     #error-box strong { font-size: 12px; }
     #file-picker-area { margin: 10px; padding: 10px; }
     #file-picker-area p { font-size: 11px; }
   }
 
-  /* Small Mobile (< 480px) */
   @media (max-width: 480px) {
     .navbar { display: none; }
     .pax-bar { padding: 5px 6px; }
     .pax-card { min-width: 130px; }
-    .seatmap-area { width: 100%; padding: 6px 4px; width: 100%; }
-    .col-headers { padding-left: 14px; gap: 15px; }
+    .seatmap-area { width: 100%; padding: 6px 4px; }
     .bottom-bar { padding: 6px 6px; }
     .action-area { justify-content: space-between; }
-    .logo-icon { font-size: 18px; }
-    .navbar-right { gap: 4px; }
-    .btn-login { 
-      padding: 3px 6px; 
-      font-size: 9px;
-      border-radius: 10px;
-    }
-    .theme-toggle { width: 24px; height: 24px; font-size: 10px; }
-    
-    .pax-bar { 
-      padding: 5px 6px;
-      gap: 6px;
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    .seat-count { 
-      font-size: 9px;
-      min-width: 55px;
-      line-height: 1.2;
-      border-bottom: none;
-      padding-bottom: 0;
-      width: auto;
-    }
-    .pax-card { padding: 4px 6px; }
-    .pax-name { font-size: 10px; }
-    .pax-action { font-size: 8px; }
-    
-    .promo-bar { 
-      padding: 5px 6px;
-      gap: 4px;
-      flex-direction: column;
-      align-items: flex-start;
-    }
-    .promo-text { font-size: 8px; }
-    .legend { gap: 6px; flex-wrap: wrap; }
-    .leg-item { font-size: 8px; }
-    .leg-swatch { width: 9px; height: 9px; }
-    
-    .main { min-height: calc(100vh - 120px); }
-    
-    .seatmap-area { 
-      padding: 6px 4px;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-    
-    .seat { 
-      width: 23px; 
-      height: 20px; 
-      font-size: 5px;
-      border-radius: 2px;
-    }
+    .seat { width: 23px; height: 20px; font-size: 5px; border-radius: 2px; }
     .col-hdr { width: 23px; font-size: 7px; }
     .exit-lbl { width: 23px; font-size: 5px; }
     .exit-spacer { width: 23px; }
@@ -482,81 +318,60 @@
     .exit-label-row { padding-left: 14px; gap: 1.5px; }
     .row-num { width: 13px; font-size: 6px; padding-right: 1px; }
     .seat-row { gap: 1.5px; margin: 0.5px 0; }
-    
-    .bottom-bar { 
-      padding: 6px 6px;
-      gap: 6px;
-      flex-direction: row;
-      align-items: center;
-      min-height: auto;
-      flex-wrap: wrap;
-    }
-    .disclaimer { 
-      font-size: 6px; 
-      line-height: 1.1;
-      order: 3;
-      width: 100%;
-      margin: 0;
-    }
-    .action-area {
-      order: 2;
-      gap: 6px;
-      flex-direction: row;
-      flex-wrap: wrap;
-    }
-    .btn-action { 
-      padding: 8px 10px; 
-      font-size: 11px;
-      border-radius: 3px;
-      border: 1.5px solid #c95500;
-      flex: 1;
-      min-width: 0;
-    }
-    .price-display { 
-      text-align: center;
-      order: 1;
-      min-width: 60px;
-    }
+    .btn-action { padding: 8px 10px; font-size: 11px; border-radius: 3px; }
     .price-total { font-size: 16px; }
     .price-link { font-size: 6px; }
-    
-    #error-box { margin: 8px; padding: 8px; font-size: 10px; }
-    #error-box strong { font-size: 11px; }
-    #file-picker-area { margin: 8px; padding: 8px; }
-    #file-picker-area p { font-size: 10px; }
   }
 
-  /* Touch device optimizations */
   @media (hover: none) and (pointer: coarse) {
-    .seat:not(.s-occ):not(.s-empty):not(.s-blocked) {
-      min-width: 40px;
-      min-height: 40px;
-    }
-    .btn-action {
-      min-height: 44px;
-      min-width: 44px;
-    }
+    .seat:not(.s-occ):not(.s-empty):not(.s-blocked) { min-width: 40px; min-height: 40px; }
+    .btn-action { min-height: 44px; min-width: 44px; }
   }
 </style>
 </head>
 <body>
-
 <div class="pax-bar">
-  <div class="seat-count" id="seat-count-display">0/3 Seats<br>selected</div>
+  <div class="seat-count" id="seat-count-display">
+    0/3 Seats<br>selected
+  </div>
+
   <div class="pax-card active" id="pax-1" data-pax="1">
     <div class="pax-name">Passenger 1</div>
-    <div class="pax-action">Select Seat</div>
-    <div class="pax-seat" id="pax-1-seat"></div>
+    <div class="pax-action">Select seat</div>
+    <div class="pax-seat-row">
+      <div class="seat-info">
+        <div class="pax-seat" id="pax-1-seat"></div>
+        <span class="separator">|</span>
+        <div class="pax-seat-detail" id="pax-1-detail"></div>
+      </div>
+      <div class="pax-change">Change Seat</div>
+    </div>
   </div>
+
   <div class="pax-card" id="pax-2" data-pax="2">
     <div class="pax-name">Passenger 2</div>
-    <div class="pax-action">Select Seat</div>
-    <div class="pax-seat" id="pax-2-seat"></div>
+    <div class="pax-action">Select seat</div>
+    <div class="pax-seat-row">
+      <div class="seat-info">
+        <div class="pax-seat" id="pax-2-seat"></div>
+        <span class="separator">|</span>
+        <div class="pax-seat-detail" id="pax-2-detail"></div>
+      </div>
+      <div class="pax-change">Change Seat</div>
+    </div>
   </div>
+
   <div class="pax-card" id="pax-3" data-pax="3">
     <div class="pax-name">Passenger 3</div>
-    <div class="pax-action">Select Seat</div>
-    <div class="pax-seat" id="pax-3-seat"></div>
+    <div class="pax-action">Select seat</div>
+    <div class="pax-seat-row">
+      <div class="seat-info">
+        <div class="pax-seat" id="pax-3-seat"></div>
+        <span class="separator">|</span>
+        <div class="pax-seat-detail" id="pax-3-detail"></div>
+      </div>
+      <div class="pax-change">Change Seat</div>
+    </div>
   </div>
 </div>
 
@@ -569,14 +384,16 @@
   </div>
 </div>
 
+<!-- CHANGE 2: Sector card - only flight number pill shown; sector tabs if multiple sectors -->
 <div class="sector-card">
   <div class="sector-info">
+    <!-- Multi-sector tabs (hidden by default, shown when multiple sectors exist) -->
+    <div class="sector-tabs" id="sector-tabs" style="display:none;"></div>
     <div class="sector-route" id="sector-route">Selected route</div>
     <div class="sector-legs" id="sector-legs">BOM → AMD</div>
     <div class="sector-meta">
+      <!-- Only flight number pill retained; Economy and equipment pills removed -->
       <span class="sector-pill" id="sector-flight">Flight 194 HGW</span>
-      <span class="sector-pill" id="sector-class">Economy</span>
-      <span class="sector-pill" id="sector-equipment">7WH</span>
     </div>
   </div>
   <button class="btn-cancel btn-text" onclick="skipSelection()">Skip</button>
@@ -594,18 +411,17 @@
   </div>
 </div>
 
+<!-- CHANGE 3: Bottom bar - Skip button removed, Back and Confirm seat only, better spacing -->
 <div class="bottom-bar">
   <div class="bottom-left">
     <div class="price-display">
       <div class="price-total" id="price-display">₹5,805</div>
       <div class="price-link">View summary</div>
     </div>
-    
   </div>
   <div class="action-area">
-      <button class="btn-action btn-secondary" onclick="goBack()">Back</button>
-    <button class="btn-action btn-text" onclick="skipSelection()">Skip</button>
-    <button class="btn-action btn-primary" style="display: inline-flex;justify-content: center;align-items: center; text-wrap: wrap;" onclick="confirmSeat() ">Confirm seat</button>
+    <button class="btn-action btn-secondary" onclick="goBack()">Back</button>
+    <button class="btn-action btn-primary" onclick="confirmSeat()">Confirm seat</button>
   </div>
 </div>
 
@@ -620,9 +436,9 @@ const BASE_PRICE = 5805;
 let currentPaxId = 1;
 let passengerNames = ['Passenger 1', 'Passenger 2', 'Passenger 3'];
 let paxSeats = {
-  1: { seat: null, fee: 0 },
-  2: { seat: null, fee: 0 },
-  3: { seat: null, fee: 0 }
+  1: { seat: null, fee: 0, detail: '' },
+  2: { seat: null, fee: 0, detail: '' },
+  3: { seat: null, fee: 0, detail: '' }
 };
 
 /* ── HELPERS ────────────────────────────────────── */
@@ -640,24 +456,18 @@ function showMap() {
 
 /* ── SAFE JSON PARSE ────────────────────────────── */
 function safeParseJSON(text) {
-  // Strategy 1: direct parse
   try { return JSON.parse(text); } catch(e1) {}
-
-  // Strategy 2: strip trailing garbage after last valid closing brace/bracket
   const lastBrace   = text.lastIndexOf('}');
   const lastBracket = text.lastIndexOf(']');
   const cutAt = Math.max(lastBrace, lastBracket);
   if (cutAt > 0) {
     try { return JSON.parse(text.slice(0, cutAt + 1)); } catch(e2) {}
   }
-
-  // Strategy 3: find the outermost object start and end
   const start = text.indexOf('{');
   if (start >= 0 && cutAt > start) {
     try { return JSON.parse(text.slice(start, cutAt + 1)); } catch(e3) {}
   }
-
-  throw new Error('JSON is malformed and could not be auto-repaired. Error position likely contains a trailing comma, unescaped character, or extra text after the closing brace.');
+  throw new Error('JSON is malformed and could not be auto-repaired.');
 }
 
 /* ── LOAD JSON ──────────────────────────────────── */
@@ -688,7 +498,6 @@ async function loadAndRender(getText) {
 
 /* ── PARSE SEAT MAP ─────────────────────────────── */
 function parseSeatMap(data) {
-  // Unwrap nested structure if needed
   const root = data?.seatMap ?? data;
   const decks = root?.decks ?? {};
   const deck1 = decks['1'] ?? Object.values(decks)[0] ?? {};
@@ -701,7 +510,6 @@ function parseSeatMap(data) {
 
   if (allUnits.length === 0) throw new Error('No seat units found in JSON. Check the JSON structure.');
 
-  // Build fees map: group → SFE amount
   const fees = {};
   const feesRoot = data?.fees ?? {};
   Object.values(feesRoot).forEach(paxFees => {
@@ -713,7 +521,6 @@ function parseSeatMap(data) {
 
   const hasProp = (u, code) => (u.properties ?? []).some(p => p.code === code && p.value === 'True');
 
-  // Group by row
   const rowMap = {};
   allUnits.forEach(u => {
     if (!u.designator || u.designator.startsWith('$')) return;
@@ -742,6 +549,17 @@ function parseSeatMap(data) {
   return { rowMap, sortedRows };
 }
 
+/* Build seat detail label e.g. "5F | Window" */
+function buildSeatDetail(info) {
+  if (!info) return '';
+  const tags = [];
+  if (info.isWindow) tags.push('Window');
+  if (info.isAisle)  tags.push('Aisle');
+  if (info.isLeg)    tags.push('Extra legroom');
+  if (info.isExit)   tags.push('Exit row');
+  return tags.length ? tags[0] : 'Middle';
+}
+
 function renderSectorInfo(data) {
   const root = data?.seatMap ?? data;
   const routeParts = [];
@@ -754,32 +572,44 @@ function renderSectorInfo(data) {
     return null;
   };
 
+  // Collect all sectors
+  const sectors = [];
   if (Array.isArray(root?.segments) && root.segments.length) {
-    root.segments.forEach(seg => {
-      const path = labelForSegment(seg);
-      if (path) routeParts.push(path);
-    });
+    root.segments.forEach(seg => { const p = labelForSegment(seg); if (p) sectors.push(p); });
   } else if (Array.isArray(root?.legs) && root.legs.length) {
-    root.legs.forEach(seg => {
-      const path = labelForSegment(seg);
-      if (path) routeParts.push(path);
-    });
+    root.legs.forEach(seg => { const p = labelForSegment(seg); if (p) sectors.push(p); });
   } else if (Array.isArray(root?.journeys) && root.journeys.length) {
-    root.journeys.forEach(j => {
-      const path = labelForSegment(j);
-      if (path) routeParts.push(path);
+    root.journeys.forEach(j => { const p = labelForSegment(j); if (p) sectors.push(p); });
+  }
+  if (sectors.length === 0 && root?.departureStation && root?.arrivalStation) {
+    sectors.push(`${root.departureStation} → ${root.arrivalStation}`);
+  }
+
+  // If multiple sectors, show tabs
+  const tabsEl = document.getElementById('sector-tabs');
+  if (sectors.length > 1) {
+    tabsEl.style.display = 'flex';
+    sectors.forEach((s, i) => {
+      const tab = document.createElement('button');
+      tab.className = 'sector-tab' + (i === 0 ? ' active' : '');
+      tab.textContent = s;
+      tab.onclick = () => {
+        document.querySelectorAll('.sector-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('sector-legs').textContent = s;
+      };
+      tabsEl.appendChild(tab);
     });
+    document.getElementById('sector-route').style.display = 'none';
+    document.getElementById('sector-legs').textContent = sectors[0];
+  } else {
+    tabsEl.style.display = 'none';
+    document.getElementById('sector-route').textContent = sectors.length === 1 ? 'Selected route' : 'Selected connections';
+    document.getElementById('sector-legs').textContent = sectors.join('  ·  ') || 'Route details unavailable';
   }
 
-  if (routeParts.length === 0 && root?.departureStation && root?.arrivalStation) {
-    routeParts.push(`${root.departureStation} → ${root.arrivalStation}`);
-  }
-
-  document.getElementById('sector-route').textContent = routeParts.length === 1 ? 'Selected route' : 'Selected connections';
-  document.getElementById('sector-legs').textContent = routeParts.join('  ·  ') || 'Route details unavailable';
+  // Only flight number pill
   document.getElementById('sector-flight').textContent = root?.name ? `Flight ${root.name}` : 'Flight details';
-  document.getElementById('sector-class').textContent = root?.travelClassCode ?? 'Economy';
-  document.getElementById('sector-equipment').textContent = root?.equipmentType ?? '';
 }
 
 function extractPassengerNames(data) {
@@ -797,11 +627,9 @@ function renderPassengerCards(data) {
     const card = document.getElementById(`pax-${i}`);
     if (!card) continue;
     const nameEl = card.querySelector('.pax-name');
-    const actionEl = card.querySelector('.pax-action');
     const label = names[i - 1] || `Passenger ${i}`;
     passengerNames[i - 1] = label;
     if (nameEl) nameEl.textContent = label;
-    if (actionEl) actionEl.textContent = 'Select seat';
   }
 }
 
@@ -810,7 +638,6 @@ function renderSeatMap({ rowMap, sortedRows }) {
   const root = document.getElementById('seatmap-root');
   root.innerHTML = '';
 
-  // Determine left/right column groups
   const colSet = new Set();
   sortedRows.forEach(r => Object.keys(rowMap[r]).forEach(c => colSet.add(c)));
   const allCols = [...colSet].sort();
@@ -818,7 +645,6 @@ function renderSeatMap({ rowMap, sortedRows }) {
   const LEFT    = allCols.slice(0, midIdx);
   const RIGHT   = allCols.slice(midIdx);
 
-  // Column headers
   const hdr = document.createElement('div');
   hdr.className = 'col-headers';
   [...LEFT, null, ...RIGHT].forEach(c => {
@@ -836,12 +662,10 @@ function renderSeatMap({ rowMap, sortedRows }) {
     const rowCols   = Object.keys(rowData);
     const isExitRow = rowCols.some(c => rowData[c]?.isExit);
 
-    // Exit labels before first exit row in a group
     if (isExitRow && !prevExitRow) {
       root.appendChild(buildExitLabelRow(rowData, LEFT, RIGHT, true));
     }
 
-    // Seat row
     const rowDiv = document.createElement('div');
     rowDiv.className = 'seat-row';
     const numDiv = document.createElement('div');
@@ -857,7 +681,6 @@ function renderSeatMap({ rowMap, sortedRows }) {
 
     root.appendChild(rowDiv);
 
-    // Exit labels after last exit row in a group
     const nextRow    = sortedRows[idx + 1];
     const nextIsExit = nextRow ? Object.keys(rowMap[nextRow] ?? {}).some(c => rowMap[nextRow][c]?.isExit) : false;
     if (isExitRow && !nextIsExit) {
@@ -866,26 +689,18 @@ function renderSeatMap({ rowMap, sortedRows }) {
 
     prevExitRow = isExitRow;
   });
-
 }
 
 function buildExitLabelRow(rowData, LEFT, RIGHT, isBefore) {
   const wrap = document.createElement('div');
   wrap.className = 'exit-label-row';
-
   const makeCell = (col) => {
     const d = document.createElement('div');
-    // For "before" label show on actual exit cols; "after" always show
     const info = rowData[col];
-    if (info?.isExit) {
-      d.className = 'exit-lbl';
-      d.textContent = 'Exit';
-    } else {
-      d.className = 'exit-spacer';
-    }
+    if (info?.isExit) { d.className = 'exit-lbl'; d.textContent = 'Exit'; }
+    else { d.className = 'exit-spacer'; }
     return d;
   };
-
   LEFT.forEach(c  => wrap.appendChild(makeCell(c)));
   const a = document.createElement('div'); a.className = 'aisle-space'; wrap.appendChild(a);
   RIGHT.forEach(c => wrap.appendChild(makeCell(c)));
@@ -903,9 +718,9 @@ function buildSeat(info, rowNum, col) {
 
   const occupied = !info.assignable || info.avail === 0;
   let cls;
-  if (occupied)              cls = 's-occ';
+  if (occupied)                      cls = 's-occ';
   else if (info.isLeg || info.isExit) cls = 's-leg';
-  else                       cls = 's-std';
+  else                                cls = 's-std';
 
   div.classList.add(cls);
   div.textContent = info.price === 0 ? 'Free' : '₹' + info.price;
@@ -913,6 +728,8 @@ function buildSeat(info, rowNum, col) {
   div.dataset.price   = info.price;
   div.dataset.isLeg   = info.isLeg ? '1' : '0';
   div.dataset.isExit  = info.isExit ? '1' : '0';
+  div.dataset.isWindow = info.isWindow ? '1' : '0';
+  div.dataset.isAisle  = info.isAisle ? '1' : '0';
 
   if (!occupied) {
     div.addEventListener('click', () => handleSeatClick(div, info, rowNum, col));
@@ -925,11 +742,8 @@ function buildSeat(info, rowNum, col) {
 
 /* ── SEAT SELECTION ─────────────────────────────── */
 function isSeatTakenByOther(seatId, currentPax) {
-  // Check if seat is taken by another passenger
   for (let i = 1; i <= 3; i++) {
-    if (i !== currentPax && paxSeats[i].seat === seatId) {
-      return true;
-    }
+    if (i !== currentPax && paxSeats[i].seat === seatId) return true;
   }
   return false;
 }
@@ -937,13 +751,11 @@ function isSeatTakenByOther(seatId, currentPax) {
 function handleSeatClick(div, info, rowNum, col) {
   const id = `${rowNum}${col}`;
 
-  // Check if seat is taken by another passenger
   if (isSeatTakenByOther(id, currentPaxId)) {
     alert(`This seat is already selected by another passenger.`);
     return;
   }
 
-  // Deselect old seat for current passenger
   const prevSeat = paxSeats[currentPaxId].seat;
   if (prevSeat) {
     const prevDiv = document.querySelector(`[data-row-col="${prevSeat}"]`);
@@ -952,20 +764,16 @@ function handleSeatClick(div, info, rowNum, col) {
       const prevPrice = +prevDiv.dataset.price;
       const prevIsLeg = prevDiv.dataset.isLeg === '1';
       const prevIsExit = prevDiv.dataset.isExit === '1';
-      
-      if (prevIsLeg || prevIsExit) {
-        prevDiv.classList.add('s-leg');
-      } else {
-        prevDiv.classList.add('s-std');
-      }
+      if (prevIsLeg || prevIsExit) prevDiv.classList.add('s-leg');
+      else prevDiv.classList.add('s-std');
       prevDiv.textContent = prevPrice === 0 ? 'Free' : '₹' + prevPrice;
     }
   }
 
-  // Toggle or select new seat
   if (paxSeats[currentPaxId].seat === id) {
     paxSeats[currentPaxId].seat = null;
     paxSeats[currentPaxId].fee = 0;
+    paxSeats[currentPaxId].detail = '';
     refreshSeatVisuals();
     updateUI();
     return;
@@ -977,44 +785,32 @@ function handleSeatClick(div, info, rowNum, col) {
 
   paxSeats[currentPaxId].seat = id;
   paxSeats[currentPaxId].fee = info.price;
+  paxSeats[currentPaxId].detail = buildSeatDetail(info);
   refreshSeatVisuals();
   updateUI();
 }
 
 function refreshSeatVisuals() {
-  // Update all seats to show blocked status if taken by other passengers
   document.querySelectorAll('.seat').forEach(seat => {
     const rowCol = seat.dataset.rowCol;
     if (!rowCol) return;
-    
-    // Check if this seat is taken by someone else
     const takenByOther = isSeatTakenByOther(rowCol, currentPaxId);
     const takenByMe = paxSeats[currentPaxId].seat === rowCol;
-    
-    // Remove all selection classes first
     seat.classList.remove('s-sel', 's-blocked');
-    
     if (takenByMe) {
-      // This is current passenger's seat
       seat.classList.remove('s-std', 's-leg');
       seat.classList.add('s-sel');
       seat.textContent = rowCol;
     } else if (takenByOther) {
-      // Seat is taken by another passenger
       seat.classList.add('s-blocked');
       seat.textContent = '✗';
     } else {
-      // Seat is available - restore original styling
       const isLeg = seat.dataset.isLeg === '1';
       const isExit = seat.dataset.isExit === '1';
       const price = +seat.dataset.price;
-      
       seat.classList.remove('s-std', 's-leg');
-      if (isLeg || isExit) {
-        seat.classList.add('s-leg');
-      } else {
-        seat.classList.add('s-std');
-      }
+      if (isLeg || isExit) seat.classList.add('s-leg');
+      else seat.classList.add('s-std');
       seat.textContent = price === 0 ? 'Free' : '₹' + price;
     }
   });
@@ -1024,26 +820,23 @@ function updateUI() {
   const seatsSelected = Object.values(paxSeats).filter(p => p.seat).length;
   const totalSeats = Object.keys(paxSeats).length;
   document.getElementById('seat-count-display').innerHTML = `${seatsSelected}/${totalSeats} Seats<br>selected`;
-  
-  // Update each passenger card with their selected seat
+
   for (let i = 1; i <= 3; i++) {
     const card = document.getElementById(`pax-${i}`);
-    const seatDiv = document.getElementById(`pax-${i}-seat`);
+    const seatEl = document.getElementById(`pax-${i}-seat`);
+    const detailEl = document.getElementById(`pax-${i}-detail`);
     if (paxSeats[i].seat) {
-      seatDiv.textContent = `Seat ${paxSeats[i].seat}`;
-      seatDiv.style.display = 'block';
+      // Show seat number and detail (e.g. "5F | Window")
+      seatEl.textContent = paxSeats[i].seat;
+      detailEl.textContent = paxSeats[i].detail ? `${paxSeats[i].detail}` : '';
       card.classList.add('has-seat');
-      const actionEl = card.querySelector('.pax-action');
-      if (actionEl) actionEl.textContent = 'Selected seat';
     } else {
-      seatDiv.style.display = 'none';
+      seatEl.textContent = '';
+      detailEl.textContent = '';
       card.classList.remove('has-seat');
-      const actionEl = card.querySelector('.pax-action');
-      if (actionEl) actionEl.textContent = 'Select seat';
     }
   }
-  
-  // Update total price
+
   const totalFee = Object.values(paxSeats).reduce((sum, p) => sum + p.fee, 0);
   document.getElementById('price-display').textContent = '₹' + (BASE_PRICE + totalFee).toLocaleString('en-IN');
 }
@@ -1080,9 +873,6 @@ function skipSelection() {
     goBack();
   }
 }
-
-function cancelSelection() { goBack(); }
-
 function confirmSeat() {
   if (!Object.values(paxSeats).some(p => p.seat)) { alert('Please select seats for passengers.'); return; }
   const seats = Object.entries(paxSeats).filter(([,p]) => p.seat).map(([i, p]) => {
@@ -1094,19 +884,13 @@ function confirmSeat() {
 
 /* ── PASSENGER SELECTION ────────────────────────── */
 document.addEventListener('DOMContentLoaded', function() {
-  // Add click handlers to passenger cards
   for (let i = 1; i <= 3; i++) {
     const paxCard = document.getElementById(`pax-${i}`);
     if (paxCard) {
       paxCard.addEventListener('click', function() {
-        // Remove active class from all cards
         document.querySelectorAll('.pax-card').forEach(card => card.classList.remove('active'));
-        // Add active class to clicked card
         this.classList.add('active');
-        // Update current passenger
         currentPaxId = i;
-        
-        // Refresh all seat visuals to show blocked seats for other passengers
         refreshSeatVisuals();
       });
     }
