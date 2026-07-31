@@ -213,24 +213,24 @@
 <div class="seat-tooltip" id="tooltip"></div>
 
 <script>
-const JSON_PATH  = 'akasa-map.json';
 const BASE_PRICE = 5805;
 
-/* ── GLOBAL STATE ── */
-let passengerNames = [];         // filled from JSON or defaults
-let numPax = 3;                  // overridden when JSON has passenger list
-let currentPaxId  = 1;           // 1-based
-let currentFlightIdx = 0;        // which tab is active
-
-/*
-  perFlightSeats[flightIdx][paxId] = { seat, fee, detail }
-  Built dynamically once we know how many flights there are.
-*/
+let passengerNames = [];
+let numPax = 3;
+let currentPaxId = 1;
+let currentFlightIdx = 0;
 let perFlightSeats = [];
+let allParsedMaps = [];
+let preferredSeats = [];
+let apiBaseUrl = '';
+let authToken = '';
+let qpApiKey = '';
+let qpSource = 'CHATBOTWEB';
+let journeyKeys = [];
+let passengerKeys = [];
+let customerNumber = '';
+let pnr = '';
 
-let allParsedMaps = [];          // { label, flightNum, parsed }
-
-/* ── UTILS ── */
 function showLoading(v) { document.getElementById('loading').style.display = v ? 'block' : 'none'; }
 function showError(html) {
   const b = document.getElementById('error-box');
@@ -241,72 +241,110 @@ function showMap() {
   document.getElementById('seatmap-root').style.display = 'block';
   document.getElementById('file-picker-area').style.display = 'none';
 }
+function getQueryParam(name) {
+  return new URLSearchParams(window.location.search).get(name) || '';
+}
+function buildSeatMapPayload(raw) {
+  let flightList = [];
+  if (Array.isArray(raw?.data) && raw.data.length > 0) {
+    raw.data.forEach(item => flightList.push(item?.seatMapAvailability ?? item));
+  } else if (raw?.seatMapAvailability) {
+    flightList = [raw.seatMapAvailability];
+  } else {
+    flightList = [raw];
+  }
+  return flightList;
+}
 function safeParseJSON(text) {
-  try { return JSON.parse(text); } catch(e) {}
+  try { return JSON.parse(text); } catch (e) {}
   const last = Math.max(text.lastIndexOf('}'), text.lastIndexOf(']'));
-  if (last > 0) { try { return JSON.parse(text.slice(0, last+1)); } catch(e) {} }
+  if (last > 0) { try { return JSON.parse(text.slice(0, last + 1)); } catch (e) {} }
   throw new Error('JSON is malformed and could not be auto-repaired.');
 }
 
-/* ── LOAD ── */
-async function loadAndRender(getText) {
+async function fetchSeatMapFromApi() {
+  const headers = {
+    'Authorization': authToken,
+    'Content-Type': 'application/json',
+    'QP-BOT-API-KEY': qpApiKey,
+    'QP-BOT-SOURCE': qpSource
+  };
+  const response = await fetch(`${apiBaseUrl}/api/ibe/agents/seatmap`, { headers });
+  if (!response.ok) throw new Error(`Seatmap API failed (${response.status})`);
+  return response.json();
+}
+
+async function fetchPreferredSeatsFromApi() {
+  if (!customerNumber) return [];
+  const headers = {
+    'Authorization': authToken,
+    'QP-BOT-API-KEY': qpApiKey,
+    'QP-BOT-SOURCE': qpSource
+  };
+  const response = await fetch(`${apiBaseUrl}/api/ibe/agents/preferred-seats?customerNumber=${encodeURIComponent(customerNumber)}`, { headers });
+  if (!response.ok) return [];
+  const json = await response.json();
+  return Array.isArray(json?.data) ? json.data : [];
+}
+
+function isPreferredSeat(info, paxIndex) {
+  const paxKey = passengerKeys[paxIndex - 1] || '';
+  const seatCode = (info?.des || '').toUpperCase();
+  return preferredSeats.some(item => {
+    const preferredSeat = (item?.seat || '').toUpperCase();
+    const samePassenger = !paxKey || !item?.paxKey || item.paxKey === paxKey;
+    return samePassenger && preferredSeat && preferredSeat === seatCode;
+  });
+}
+
+async function loadAndRenderFromApi() {
   showLoading(true);
   try {
-    const text = await getText();
-    const raw  = safeParseJSON(text);
-
-    let flightList = [];
-    if (Array.isArray(raw?.data) && raw.data.length > 0) {
-      raw.data.forEach(item => flightList.push(item?.seatMapAvailability ?? item));
-    } else {
-      flightList = [raw];
-    }
-
-    /* Extract passenger names from first flight */
-    passengerNames = extractPassengerNames(flightList[0]);
-    numPax = passengerNames.length || 3;
-    if (passengerNames.length === 0) {
-      for (let i = 1; i <= numPax; i++) passengerNames.push(`Passenger ${i}`);
-    }
-
-    /* Parse every flight, init its seat state */
-    allParsedMaps = flightList.map((fd, fi) => {
-      /* Init per-flight seat slots */
-      perFlightSeats[fi] = {};
-      for (let p = 1; p <= numPax; p++) perFlightSeats[fi][p] = { seat: null, fee: 0, detail: '' };
-      return {
-        data:      fd,
-        parsed:    parseSeatMap(fd),
-        label:     buildFlightLabel(fd),
-        flightNum: buildFlightNum(fd)
-      };
-    });
-
-    buildFlightTabs();
-    buildPaxCards();
-    switchToFlight(0);
+    const seatMapResponse = await fetchSeatMapFromApi();
+    preferredSeats = await fetchPreferredSeatsFromApi();
+    const flightList = buildSeatMapPayload(seatMapResponse);
+    renderSeatMapData(flightList);
     showLoading(false);
     showMap();
-  } catch(err) {
+  } catch (err) {
     showLoading(false);
     showError(`<strong>⚠ Could not load seat map</strong> ${err.message}<br><br>
-      <b>Common fixes:</b><br>• Place HTML and JSON in the <em>same folder</em><br>
-      • Serve via <code>npx serve .</code> or VS Code Live Server<br>
-      • Or use the file picker below`);
+      <b>Common fixes:</b><br>• Verify the bot passed a valid auth token and API base URL<br>• Or use the file picker below`);
   }
 }
 
-/* ── FLIGHT LABEL HELPERS ── */
+function renderSeatMapData(flightList) {
+  passengerNames = extractPassengerNames(flightList[0] || {});
+  numPax = passengerNames.length || 3;
+  if (passengerNames.length === 0) {
+    for (let i = 1; i <= numPax; i++) passengerNames.push(`Passenger ${i}`);
+  }
+
+  allParsedMaps = flightList.map((fd, fi) => {
+    perFlightSeats[fi] = {};
+    for (let p = 1; p <= numPax; p++) perFlightSeats[fi][p] = { seat: null, fee: 0, detail: '', unitKey: null };
+    return {
+      data: fd,
+      parsed: parseSeatMap(fd),
+      label: buildFlightLabel(fd),
+      flightNum: buildFlightNum(fd)
+    };
+  });
+
+  buildFlightTabs();
+  buildPaxCards();
+  switchToFlight(0);
+}
+
 function buildFlightLabel(data) {
   const root = data?.seatMap ?? data;
-  const seg  = (root?.segments ?? root?.legs ?? root?.journeys ?? [])[0];
+  const seg = (root?.segments ?? root?.legs ?? root?.journeys ?? [])[0];
   if (seg) {
     const from = seg.departureStation || seg.origin || seg.from;
-    const to   = seg.arrivalStation   || seg.destination || seg.to;
+    const to = seg.arrivalStation || seg.destination || seg.to;
     if (from && to) return `${from} - ${to}`;
   }
-  if (root?.departureStation && root?.arrivalStation)
-    return `${root.departureStation} - ${root.arrivalStation}`;
+  if (root?.departureStation && root?.arrivalStation) return `${root.departureStation} - ${root.arrivalStation}`;
   return 'Flight';
 }
 function buildFlightNum(data) {
@@ -314,7 +352,6 @@ function buildFlightNum(data) {
   return root?.name ? `Flight ${root.name}` : 'Flight details';
 }
 
-/* ── BUILD FLIGHT TABS ── */
 function buildFlightTabs() {
   const bar = document.getElementById('flight-tabs-bar');
   bar.innerHTML = '';
@@ -335,28 +372,25 @@ function updateFlightTabs() {
     const btn = document.getElementById(`ftab-${i}`);
     if (!btn) return;
     btn.className = 'flight-tab' + (i === currentFlightIdx ? ' active' : '');
-    /* Mark a tab "done" if every pax has a seat on that flight */
     const seats = perFlightSeats[i] ?? {};
     const allDone = Object.values(seats).every(s => s.seat !== null);
     if (allDone && i !== currentFlightIdx) btn.classList.add('done');
   });
 }
 
-/* ── BUILD PAX CARDS (static, refreshed per tab) ── */
 function buildPaxCards() {
   const bar = document.getElementById('pax-bar');
-  /* Keep seat-count div, replace rest */
   bar.innerHTML = `<div class="seat-count" id="seat-count-display">0/${numPax} Seats<br>selected</div>`;
   for (let i = 1; i <= numPax; i++) {
     const div = document.createElement('div');
     div.className = 'pax-card' + (i === 1 ? ' active-pax' : '');
     div.id = `pax-${i}`;
     div.innerHTML = `
-      <div class="pax-name">${passengerNames[i-1]}</div>
+      <div class="pax-name">${passengerNames[i - 1]}</div>
       <div class="pax-action">Select seat</div>
       <div class="pax-seat-row">
         <div>
-          <div class="pax-seat-num"  id="pax-${i}-seat"></div>
+          <div class="pax-seat-num" id="pax-${i}-seat"></div>
           <div class="pax-seat-detail" id="pax-${i}-detail"></div>
         </div>
         <div class="pax-change">Change</div>
@@ -373,14 +407,13 @@ function selectPax(i) {
   refreshSeatVisuals();
 }
 
-/* ── SWITCH FLIGHT TAB ── */
 function switchToFlight(idx) {
   currentFlightIdx = idx;
-  currentPaxId = 1;            // reset active pax to 1 when changing flight
+  currentPaxId = 1;
   selectPax(1);
 
   const m = allParsedMaps[idx];
-  document.getElementById('sector-route').textContent  = m.label;
+  document.getElementById('sector-route').textContent = m.label;
   document.getElementById('sector-flight').textContent = m.flightNum;
 
   renderSeatMap(m.parsed);
@@ -389,7 +422,6 @@ function switchToFlight(idx) {
   updateConfirmButton();
 }
 
-/* ── PAX BAR UI for current flight ── */
 function updateUIForFlight() {
   const seats = perFlightSeats[currentFlightIdx] ?? {};
   const sel = Object.values(seats).filter(s => s.seat).length;
@@ -397,8 +429,8 @@ function updateUIForFlight() {
 
   for (let i = 1; i <= numPax; i++) {
     const card = document.getElementById(`pax-${i}`);
-    const sn   = document.getElementById(`pax-${i}-seat`);
-    const sd   = document.getElementById(`pax-${i}-detail`);
+    const sn = document.getElementById(`pax-${i}-seat`);
+    const sd = document.getElementById(`pax-${i}-detail`);
     if (!card) continue;
     const info = seats[i] ?? {};
     if (info.seat) {
@@ -406,12 +438,12 @@ function updateUIForFlight() {
       sd.textContent = info.detail ?? '';
       card.classList.add('has-seat');
     } else {
-      sn.textContent = ''; sd.textContent = '';
+      sn.textContent = '';
+      sd.textContent = '';
       card.classList.remove('has-seat');
     }
   }
 
-  /* Grand total across all flights */
   let totalFee = 0;
   perFlightSeats.forEach(fs => { Object.values(fs).forEach(p => { totalFee += p.fee; }); });
   document.getElementById('price-display').textContent = '₹' + (BASE_PRICE + totalFee).toLocaleString('en-IN');
@@ -432,18 +464,15 @@ function updateConfirmButton() {
 function handleConfirm() {
   const isLast = currentFlightIdx === allParsedMaps.length - 1;
   if (!isLast) {
-    /* Advance to next flight tab */
     switchToFlight(currentFlightIdx + 1);
-    /* Scroll tabs into view */
     document.getElementById(`ftab-${currentFlightIdx}`)?.scrollIntoView({ behavior: 'smooth', inline: 'center' });
   } else {
     confirmSeat();
   }
 }
 
-/* ── PARSE ── */
 function parseSeatMap(data) {
-  const root  = data?.seatMap ?? data;
+  const root = data?.seatMap ?? data;
   const decks = root?.decks ?? {};
   const deck1 = decks['1'] ?? Object.values(decks)[0] ?? {};
   const allUnits = [];
@@ -467,24 +496,33 @@ function parseSeatMap(data) {
     const m = u.designator.match(/^(\d+)([A-Z])$/); if (!m) return;
     const row = +m[1], col = m[2];
     if (!rowMap[row]) rowMap[row] = {};
+    const availabilityText = (u.availability ?? '').toString().toLowerCase();
+    const isOpen = availabilityText === 'open';
     rowMap[row][col] = {
-      des: u.designator, key: u.unitKey,
-      avail: u.availability ?? 0, assignable: !!u.assignable, group: u.group ?? 0,
+      des: u.designator,
+      key: u.unitKey,
+      avail: isOpen ? 1 : 0,
+      assignable: !!u.assignable && isOpen,
+      group: u.group ?? 0,
       price: fees[u.group] ?? 0,
-      isWindow: hasProp(u,'WINDOW'), isAisle: hasProp(u,'AISLE'),
-      isLeg: hasProp(u,'LEGROOM'), isExit: hasProp(u,'EXITROW'),
-      isDisab: hasProp(u,'DISABIL'), isPet: hasProp(u,'PET'), noChild: hasProp(u,'NCHILD'),
+      isWindow: hasProp(u, 'WINDOW'),
+      isAisle: hasProp(u, 'AISLE'),
+      isLeg: hasProp(u, 'LEGROOM'),
+      isExit: hasProp(u, 'EXITROW'),
+      isDisab: hasProp(u, 'DISABIL'),
+      isPet: hasProp(u, 'PET'),
+      noChild: hasProp(u, 'NCHILD')
     };
   });
-  return { rowMap, sortedRows: Object.keys(rowMap).map(Number).sort((a,b)=>a-b) };
+  return { rowMap, sortedRows: Object.keys(rowMap).map(Number).sort((a, b) => a - b) };
 }
 
 function buildSeatDetail(info) {
   if (!info) return '';
   if (info.isWindow) return 'Window';
-  if (info.isAisle)  return 'Aisle';
-  if (info.isLeg)    return 'Extra legroom';
-  if (info.isExit)   return 'Exit row';
+  if (info.isAisle) return 'Aisle';
+  if (info.isLeg) return 'Extra legroom';
+  if (info.isExit) return 'Exit row';
   return 'Middle';
 }
 
@@ -494,7 +532,6 @@ function extractPassengerNames(data) {
   return list.map(item => item?.name || [item?.firstName, item?.lastName].filter(Boolean).join(' ')).filter(Boolean);
 }
 
-/* ── RENDER SEATMAP ── */
 function renderSeatMap({ rowMap, sortedRows }) {
   const root = document.getElementById('seatmap-root');
   root.innerHTML = '';
@@ -516,19 +553,19 @@ function renderSeatMap({ rowMap, sortedRows }) {
   let prevExit = false;
   sortedRows.forEach((rowNum, idx) => {
     const rowData = rowMap[rowNum] ?? {};
-    const isExit  = Object.keys(rowData).some(c => rowData[c]?.isExit);
+    const isExit = Object.keys(rowData).some(c => rowData[c]?.isExit);
     if (isExit && !prevExit) root.appendChild(buildExitLabelRow(rowData, LEFT, RIGHT));
 
     const rowDiv = document.createElement('div'); rowDiv.className = 'seat-row';
     const numDiv = document.createElement('div'); numDiv.className = 'row-num'; numDiv.textContent = rowNum;
     rowDiv.appendChild(numDiv);
-    LEFT.forEach(c  => rowDiv.appendChild(buildSeat(rowData[c], rowNum, c)));
+    LEFT.forEach(c => rowDiv.appendChild(buildSeat(rowData[c], rowNum, c)));
     const aisle = document.createElement('div'); aisle.className = 'aisle-space'; rowDiv.appendChild(aisle);
     RIGHT.forEach(c => rowDiv.appendChild(buildSeat(rowData[c], rowNum, c)));
     root.appendChild(rowDiv);
 
-    const nextRow    = sortedRows[idx+1];
-    const nextIsExit = nextRow ? Object.keys(rowMap[nextRow]??{}).some(c=>rowMap[nextRow][c]?.isExit) : false;
+    const nextRow = sortedRows[idx + 1];
+    const nextIsExit = nextRow ? Object.keys(rowMap[nextRow] ?? {}).some(c => rowMap[nextRow][c]?.isExit) : false;
     if (isExit && !nextIsExit) root.appendChild(buildExitLabelRow(rowData, LEFT, RIGHT));
     prevExit = isExit;
   });
@@ -542,7 +579,7 @@ function buildExitLabelRow(rowData, LEFT, RIGHT) {
     else d.className = 'exit-spacer';
     return d;
   };
-  LEFT.forEach(c  => wrap.appendChild(mk(c)));
+  LEFT.forEach(c => wrap.appendChild(mk(c)));
   const a = document.createElement('div'); a.className = 'aisle-space'; wrap.appendChild(a);
   RIGHT.forEach(c => wrap.appendChild(mk(c)));
   return wrap;
@@ -553,21 +590,21 @@ function buildSeat(info, rowNum, col) {
   if (!info) { div.classList.add('s-empty'); return div; }
   const occ = !info.assignable || info.avail === 0;
   div.classList.add(occ ? 's-occ' : (info.isLeg || info.isExit) ? 's-leg' : 's-std');
+  if (isPreferredSeat(info, currentPaxId)) div.classList.add('s-preferred');
   div.textContent = info.price === 0 ? 'Free' : '₹' + info.price;
-  div.dataset.rowCol   = `${rowNum}${col}`;
-  div.dataset.price    = info.price;
-  div.dataset.isLeg    = info.isLeg  ? '1' : '0';
-  div.dataset.isExit   = info.isExit ? '1' : '0';
+  div.dataset.rowCol = `${rowNum}${col}`;
+  div.dataset.price = info.price;
+  div.dataset.isLeg = info.isLeg ? '1' : '0';
+  div.dataset.isExit = info.isExit ? '1' : '0';
   div.dataset.isWindow = info.isWindow ? '1' : '0';
-  div.dataset.isAisle  = info.isAisle  ? '1' : '0';
+  div.dataset.isAisle = info.isAisle ? '1' : '0';
   if (!occ) div.addEventListener('click', () => handleSeatClick(div, info, rowNum, col));
   div.addEventListener('mouseenter', e => showTip(e, info, rowNum, col));
   div.addEventListener('mouseleave', hideTip);
-  div.addEventListener('mousemove',  moveTip);
+  div.addEventListener('mousemove', moveTip);
   return div;
 }
 
-/* ── SEAT SELECTION ── */
 function flightSeats() { return perFlightSeats[currentFlightIdx]; }
 
 function isSeatTakenByOther(id, pax) {
@@ -577,31 +614,28 @@ function isSeatTakenByOther(id, pax) {
 }
 
 function handleSeatClick(div, info, rowNum, col) {
-  const id    = `${rowNum}${col}`;
+  const id = `${rowNum}${col}`;
   const seats = flightSeats();
   if (isSeatTakenByOther(id, currentPaxId)) { alert('This seat is already selected by another passenger.'); return; }
 
-  /* Deselect previous */
   const prev = seats[currentPaxId]?.seat;
   if (prev) {
     const pd = document.querySelector(`[data-row-col="${prev}"]`);
     if (pd) {
       pd.classList.remove('s-sel');
-      pd.classList.add((pd.dataset.isLeg==='1'||pd.dataset.isExit==='1') ? 's-leg' : 's-std');
-      pd.textContent = +pd.dataset.price===0 ? 'Free' : '₹'+pd.dataset.price;
+      pd.classList.add((pd.dataset.isLeg === '1' || pd.dataset.isExit === '1') ? 's-leg' : 's-std');
+      pd.textContent = +pd.dataset.price === 0 ? 'Free' : '₹' + pd.dataset.price;
     }
   }
 
-  /* Toggle off if same seat clicked again */
   if (seats[currentPaxId]?.seat === id) {
-    seats[currentPaxId] = { seat: null, fee: 0, detail: '' };
+    seats[currentPaxId] = { seat: null, fee: 0, detail: '', unitKey: null };
     refreshSeatVisuals(); updateUIForFlight(); return;
   }
 
-  div.classList.remove('s-std','s-leg'); div.classList.add('s-sel'); div.textContent = id;
-  seats[currentPaxId] = { seat: id, fee: info.price, detail: buildSeatDetail(info) };
+  div.classList.remove('s-std', 's-leg'); div.classList.add('s-sel'); div.textContent = id;
+  seats[currentPaxId] = { seat: id, fee: info.price, detail: buildSeatDetail(info), unitKey: info.key };
 
-  /* Auto-advance to next unsated pax */
   const nextUnsated = Object.keys(seats).map(Number).find(p => p > currentPaxId && !seats[p]?.seat);
   if (nextUnsated) selectPax(nextUnsated);
 
@@ -612,70 +646,117 @@ function refreshSeatVisuals() {
   const seats = flightSeats();
   document.querySelectorAll('.seat').forEach(seat => {
     const rc = seat.dataset.rowCol; if (!rc) return;
-    const mine  = seats[currentPaxId]?.seat === rc;
+    const mine = seats[currentPaxId]?.seat === rc;
     const other = isSeatTakenByOther(rc, currentPaxId);
-    seat.classList.remove('s-sel','s-blocked');
+    seat.classList.remove('s-sel', 's-blocked');
     if (mine) {
-      seat.classList.remove('s-std','s-leg'); seat.classList.add('s-sel'); seat.textContent = rc;
+      seat.classList.remove('s-std', 's-leg'); seat.classList.add('s-sel'); seat.textContent = rc;
     } else if (other) {
       seat.classList.add('s-blocked'); seat.textContent = '✗';
     } else {
-      seat.classList.remove('s-std','s-leg');
-      seat.classList.add((seat.dataset.isLeg==='1'||seat.dataset.isExit==='1') ? 's-leg' : 's-std');
-      seat.textContent = +seat.dataset.price===0 ? 'Free' : '₹'+seat.dataset.price;
+      seat.classList.remove('s-std', 's-leg');
+      seat.classList.add((seat.dataset.isLeg === '1' || seat.dataset.isExit === '1') ? 's-leg' : 's-std');
+      seat.textContent = +seat.dataset.price === 0 ? 'Free' : '₹' + seat.dataset.price;
     }
   });
 }
 
-/* ── TOOLTIP ── */
 const tip = document.getElementById('tooltip');
 function showTip(e, info, r, c) {
   const lines = [`Row ${r}, Seat ${c}`];
   if (info.isWindow) lines.push('Window');
-  if (info.isAisle)  lines.push('Aisle');
-  if (info.isLeg)    lines.push('Extra legroom');
-  if (info.isExit)   lines.push('Exit row');
-  if (info.isPet)    lines.push('Pet-friendly zone');
-  if (info.noChild)  lines.push('No children');
-  if (info.isDisab)  lines.push('Accessibility seat');
-  lines.push(info.avail===0 ? 'Occupied' : 'Price: '+(info.price===0?'Free':'₹'+info.price));
+  if (info.isAisle) lines.push('Aisle');
+  if (info.isLeg) lines.push('Extra legroom');
+  if (info.isExit) lines.push('Exit row');
+  if (info.isPet) lines.push('Pet-friendly zone');
+  if (info.noChild) lines.push('No children');
+  if (info.isDisab) lines.push('Accessibility seat');
+  if (isPreferredSeat(info, currentPaxId)) lines.push('Preferred seat');
+  lines.push(info.avail === 0 ? 'Occupied' : 'Price: ' + (info.price === 0 ? 'Free' : '₹' + info.price));
   tip.innerHTML = lines.join('<br>'); tip.style.display = 'block'; moveTip(e);
 }
-function moveTip(e) { tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY+14)+'px'; }
-function hideTip()  { tip.style.display='none'; }
+function moveTip(e) { tip.style.left = (e.clientX + 14) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; }
+function hideTip() { tip.style.display = 'none'; }
 
-/* ── ACTIONS ── */
-function goBack()        { if(window.history.length>1) window.history.back(); else alert('Use browser navigation to exit.'); }
-function skipSelection() { if(confirm('Skip seat selection?')) goBack(); }
-function confirmSeat()   {
-  const lines = [];
-  allParsedMaps.forEach((m, fi) => {
-    const seats = perFlightSeats[fi] ?? {};
-    const chosen = Object.entries(seats).filter(([,s])=>s.seat);
-    if (chosen.length) {
-      lines.push(`${m.label}:`);
-      chosen.forEach(([pid, s]) => lines.push(`  ${passengerNames[pid-1]||'Pax '+pid}: ${s.seat}`));
-    }
+function buildSeatSelectionPayload() {
+  const selectedItems = [];
+  perFlightSeats.forEach((flightSeats, fi) => {
+    const journeyKey = journeyKeys[fi] || journeyKeys[0] || '';
+    Object.entries(flightSeats || {}).forEach(([pid, seatInfo]) => {
+      if (!seatInfo || !seatInfo.seat || !seatInfo.unitKey) return;
+      const passengerKey = passengerKeys[Number(pid) - 1] || '';
+      if (!journeyKey || !passengerKey) return;
+      selectedItems.push(`${journeyKey}|${passengerKey}|${seatInfo.unitKey}`);
+    });
   });
-  if (!lines.length) { alert('Please select seats for passengers.'); return; }
-  let totalFee = 0;
-  perFlightSeats.forEach(fs => Object.values(fs).forEach(p => { totalFee += p.fee; }));
-  alert(`Seats confirmed!\n${lines.join('\n')}\nTotal: ₹${(BASE_PRICE+totalFee).toLocaleString('en-IN')}`);
+  return selectedItems.join(';');
 }
 
-/* ── FILE PICKER ── */
+function sendSeatSelectionToBot(payload) {
+  const data = [
+    `pnr=${encodeURIComponent(pnr)}`,
+    `journey_keys=${encodeURIComponent(journeyKeys.join(','))}`,
+    `passenger_keys=${encodeURIComponent(passengerKeys.join(','))}`,
+    `selected_seats=${encodeURIComponent(payload)}`,
+    `capture_seat_selection=${encodeURIComponent(payload)}`
+  ].join('||');
+
+  const encoded = encodeURIComponent(data.split(',').join(';;').split('&').join('^%'));
+  const text = `{api_name:akasa_seat_selection,data:${encoded}}`;
+
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage(
+      `http://haptik-webview//perform-action?action=close&message=${text}&message_type=0`,
+      '*'
+    );
+  } else {
+    console.log('Seat selection payload:', payload);
+  }
+}
+
+function goBack() { if (window.history.length > 1) window.history.back(); else alert('Use browser navigation to exit.'); }
+function skipSelection() { if (confirm('Skip seat selection?')) goBack(); }
+function confirmSeat() {
+  const payload = buildSeatSelectionPayload();
+  if (!payload) { alert('Please select seats for passengers.'); return; }
+  const btn = document.getElementById('confirm-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Submitting...';
+  }
+  setTimeout(() => sendSeatSelectionToBot(payload), 500);
+}
+
 document.getElementById('json-file-input').addEventListener('change', function() {
   const file = this.files[0]; if (!file) return;
   document.getElementById('error-box').style.display = 'none';
   document.getElementById('file-picker-area').style.display = 'none';
-  loadAndRender(() => file.text());
+  file.text().then(text => {
+    const raw = safeParseJSON(text);
+    renderSeatMapData(buildSeatMapPayload(raw));
+  }).catch(err => {
+    showError(`<strong>⚠ Could not load seat map</strong> ${err.message}`);
+  });
 });
 
-/* ── AUTO LOAD ── */
-loadAndRender(() => fetch(JSON_PATH).then(r => {
-  if (!r.ok) throw new Error(`HTTP ${r.status} — file not found or server not running`);
-  return r.text();
-}));
+function init() {
+  apiBaseUrl = getQueryParam('base_url') || '';
+  authToken = getQueryParam('auth_token') || '';
+  qpApiKey = getQueryParam('qp_bot_api_key') || '';
+  qpSource = getQueryParam('qp_bot_source') || 'CHATBOTWEB';
+  journeyKeys = (getQueryParam('journey_keys') || '').split(',').filter(Boolean);
+  passengerKeys = (getQueryParam('passenger_keys') || '').split(',').filter(Boolean);
+  customerNumber = getQueryParam('customer_number') || '';
+  pnr = getQueryParam('pnr') || '';
+
+  if (apiBaseUrl && authToken) {
+    loadAndRenderFromApi();
+  } else {
+    showError('<strong>⚠ Missing booking context</strong> The bot did not provide the required auth token and API base URL.');
+  }
+}
+
+init();
 </script>
 </body>
 </html>
