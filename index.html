@@ -7,7 +7,6 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; color: #222; }
-
   /* ── FLIGHT SEGMENT TABS — very top, full width ── */
   .flight-tabs-bar {
     background: #fff8f2;
@@ -16,10 +15,7 @@
     overflow-x: auto;
   }
   .flight-tab {
-    flex: 1; min-width: 140px;
-    padding: 12px 20px;
-    font-size: 14px; font-weight: 600; color: #888;
-    background: transparent; border: none; cursor: pointer;
+    flex: 1; min-width: 140px;padding: 12px 20px;font-size: 14px; font-weight: 600; color: #888;background: transparent; border: none; cursor: pointer;
     border-bottom: 3px solid transparent;
     margin-bottom: -2px;
     white-space: nowrap; text-align: center;
@@ -109,7 +105,6 @@
   .exit-label-row { display: flex; align-items: center; gap: 3px; margin: 4px 0; padding-left: 28px; }
   .exit-lbl    { background: #e8630a; color: #fff; font-size: 9px; font-weight: 800; padding: 2px 0; border-radius: 3px; text-align: center; letter-spacing: 0.5px; width: 38px; flex-shrink: 0; }
   .exit-spacer { width: 38px; flex-shrink: 0; }
-
   /* ── BOTTOM BAR ── */
   .bottom-bar {
     background: #fff; border-top: 2px solid #e5e7eb;
@@ -128,13 +123,11 @@
   /* next-flight button (shown when on first tab and all pax have seats) */
   .btn-next { background: #1a73e8; color: #fff; }
   .btn-next:hover { background: #1558b0; }
-
   .seat-tooltip {
     position: fixed; background: #222; color: #fff; font-size: 11px; padding: 6px 10px;
     border-radius: 4px; pointer-events: none; z-index: 9999; display: none;
     white-space: nowrap; line-height: 1.6;
   }
-
   @media (max-width: 768px) {
     .seat { width: 28px; height: 24px; font-size: 6.5px; }
     .col-hdr, .exit-lbl, .exit-spacer { width: 28px; font-size: 7px; }
@@ -693,13 +686,18 @@ function buildSeatSelectionPayload() {
 }
 
 function sendSeatSelectionToBot(payload) {
-  const data = [
-    `pnr=${encodeURIComponent(pnr)}`,
+  const parts = [];
+  if (pnr) {
+    parts.push(`pnr=${encodeURIComponent(pnr)}`);
+  }
+  parts.push(
     `journey_keys=${encodeURIComponent(journeyKeys.join(','))}`,
     `passenger_keys=${encodeURIComponent(passengerKeys.join(','))}`,
     `selected_seats=${encodeURIComponent(payload)}`,
     `capture_seat_selection=${encodeURIComponent(payload)}`
-  ].join('||');
+  );
+
+  const data = parts.join('||');
 
   const encoded = encodeURIComponent(data.split(',').join(';;').split('&').join('^%'));
   const text = `{api_name:akasa_seat_selection,data:${encoded}}`;
@@ -747,7 +745,7 @@ function init() {
   journeyKeys = (getQueryParam('journey_keys') || '').split(',').filter(Boolean);
   passengerKeys = (getQueryParam('passenger_keys') || '').split(',').filter(Boolean);
   customerNumber = getQueryParam('customer_number') || '';
-  pnr = getQueryParam('pnr') || '';
+  pnr = getQueryParam('pnr') || getQueryParam('record_locator') || '';
 
   if (apiBaseUrl && authToken) {
     loadAndRenderFromApi();
