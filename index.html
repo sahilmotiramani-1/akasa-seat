@@ -39,9 +39,6 @@
   .sector-info { display: flex; flex-direction: column; gap: 2px; }
   .sector-route { font-size: 16px; font-weight: 700; color: #1a1a2e; }
   .sector-pill  { background: #fff8f2; color: #c05000; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; margin-top: 2px; }
-  .btn-skip     { background: transparent; border: 1.5px solid #ccc; color: #555; padding: 7px 16px; border-radius: 999px; cursor: pointer; font-size: 13px; white-space: nowrap; }
-  .btn-skip:hover { background: #f9f9f9; }
-
   /* ── PAX BAR ── */
   .pax-bar {
     background: #fff; border-bottom: 1px solid #e5e7eb;
@@ -74,15 +71,18 @@
   /* ── SEATMAP ── */
   .main { background: #f0f0f0; min-height: calc(100vh - 210px); }
   .seatmap-area { width: 100%; overflow-x: auto; padding: 16px 18px 24px; display: flex; justify-content: flex-start; }
-  .aircraft-wrap { display: block; width: max-content; margin: 0 auto; }
+  .aircraft-wrap {
+    display: block;
+    width: max-content;
+    margin: 0 auto;
+    transform: scale(1.35);
+    transform-origin: top center;
+}
 
   #loading   { text-align: center; padding: 40px; color: #888; font-size: 14px; }
   #error-box { display: none; margin: 20px; padding: 20px; background: #fff8f2; border: 1.5px solid #e8630a; border-radius: 8px; font-size: 13px; line-height: 1.8; color: #333; }
   #error-box strong { color: #c00; font-size: 15px; display: block; margin-bottom: 8px; }
   #error-box code   { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-family: monospace; font-size: 12px; }
-  #file-picker-area { display: none; margin: 20px; padding: 20px; background: #f0f7ff; border: 1.5px dashed #4a90e2; border-radius: 8px; text-align: center; }
-  #file-picker-area p { font-size: 13px; color: #555; margin-bottom: 12px; }
-
   .col-headers   { display: flex; align-items: center; gap: 3px; margin-bottom: 4px; padding-left: 28px; }
   .col-hdr       { width: 38px; text-align: center; font-size: 11px; font-weight: 700; color: #666; }
   .aisle-space   { width: 22px; flex-shrink: 0; }
@@ -105,12 +105,14 @@
   .exit-label-row { display: flex; align-items: center; gap: 3px; margin: 4px 0; padding-left: 28px; }
   .exit-lbl    { background: #e8630a; color: #fff; font-size: 9px; font-weight: 800; padding: 2px 0; border-radius: 3px; text-align: center; letter-spacing: 0.5px; width: 38px; flex-shrink: 0; }
   .exit-spacer { width: 38px; flex-shrink: 0; }
+  
   /* ── BOTTOM BAR ── */
   .bottom-bar {
     background: #fff; border-top: 2px solid #e5e7eb;
     padding: 12px 24px; display: flex; align-items: center; justify-content: space-between;
     position: sticky; bottom: 0; z-index: 100;
   }
+  .price-info { display: flex; flex-direction: column; gap: 2px; }
   .price-total { font-size: 20px; font-weight: 800; color: #e8630a; }
   .price-link  { font-size: 11px; color: #888; cursor: pointer; text-decoration: underline; }
   .action-area { display: flex; align-items: center; gap: 12px; }
@@ -123,11 +125,13 @@
   /* next-flight button (shown when on first tab and all pax have seats) */
   .btn-next { background: #1a73e8; color: #fff; }
   .btn-next:hover { background: #1558b0; }
+  
   .seat-tooltip {
     position: fixed; background: #222; color: #fff; font-size: 11px; padding: 6px 10px;
     border-radius: 4px; pointer-events: none; z-index: 9999; display: none;
     white-space: nowrap; line-height: 1.6;
   }
+  
   @media (max-width: 768px) {
     .seat { width: 28px; height: 24px; font-size: 6.5px; }
     .col-hdr, .exit-lbl, .exit-spacer { width: 28px; font-size: 7px; }
@@ -156,10 +160,9 @@
 <!-- ② SECTOR INFO BAR -->
 <div class="sector-bar">
   <div class="sector-info">
-    <div class="sector-route" id="sector-route">BOM → AMD</div>
+    <div class="sector-route" id="sector-route">Loading...</div>
     <span class="sector-pill"  id="sector-flight">Flight details</span>
   </div>
-  <button class="btn-skip" onclick="skipSelection()">Skip</button>
 </div>
 
 <!-- ③ PAX BAR -->
@@ -183,22 +186,17 @@
   <div class="seatmap-area">
     <div id="loading">Loading seat map…</div>
     <div id="error-box"></div>
-    <div id="file-picker-area">
-      <p>Could not auto-load the JSON. Pick the file manually:</p>
-      <input type="file" id="json-file-input" accept=".json">
-    </div>
     <div class="aircraft-wrap" id="seatmap-root" style="display:none;"></div>
   </div>
 </div>
 
 <!-- ⑥ BOTTOM BAR -->
 <div class="bottom-bar">
-  <div>
-    <div class="price-total" id="price-display">₹5,805</div>
-    <div class="price-link">View summary</div>
+  <div class="price-info">
+    <div class="price-total" id="price-display">Loading...</div>
+    <div class="price-link" onclick="toggleSummary()">View summary</div>
   </div>
   <div class="action-area">
-    <button class="btn-action btn-secondary" onclick="goBack()">Back</button>
     <button class="btn-action btn-primary"   id="confirm-btn" onclick="handleConfirm()">Confirm seat</button>
   </div>
 </div>
@@ -206,7 +204,7 @@
 <div class="seat-tooltip" id="tooltip"></div>
 
 <script>
-const BASE_PRICE = 5805;
+const BASE_PRICE = 0;
 
 let passengerNames = [];
 let numPax = 3;
@@ -223,16 +221,18 @@ let journeyKeys = [];
 let passengerKeys = [];
 let customerNumber = '';
 let pnr = '';
+let tripSummary = '';
+let totalAmount = 0;
+let currencyCode = 'INR';
+let segmentMap = [];
 
 function showLoading(v) { document.getElementById('loading').style.display = v ? 'block' : 'none'; }
 function showError(html) {
   const b = document.getElementById('error-box');
   b.style.display = 'block'; b.innerHTML = html;
-  document.getElementById('file-picker-area').style.display = 'block';
 }
 function showMap() {
   document.getElementById('seatmap-root').style.display = 'block';
-  document.getElementById('file-picker-area').style.display = 'none';
 }
 function getQueryParam(name) {
   return new URLSearchParams(window.location.search).get(name) || '';
@@ -248,13 +248,6 @@ function buildSeatMapPayload(raw) {
   }
   return flightList;
 }
-function safeParseJSON(text) {
-  try { return JSON.parse(text); } catch (e) {}
-  const last = Math.max(text.lastIndexOf('}'), text.lastIndexOf(']'));
-  if (last > 0) { try { return JSON.parse(text.slice(0, last + 1)); } catch (e) {} }
-  throw new Error('JSON is malformed and could not be auto-repaired.');
-}
-
 async function fetchSeatMapFromApi() {
   const headers = {
     'Authorization': authToken,
@@ -302,27 +295,49 @@ async function loadAndRenderFromApi() {
   } catch (err) {
     showLoading(false);
     showError(`<strong>⚠ Could not load seat map</strong> ${err.message}<br><br>
-      <b>Common fixes:</b><br>• Verify the bot passed a valid auth token and API base URL<br>• Or use the file picker below`);
+      <b>Common fixes:</b><br>• Verify the bot passed a valid auth token and API base URL`);
   }
 }
 
 function renderSeatMapData(flightList) {
-  passengerNames = extractPassengerNames(flightList[0] || {});
+  // FIXED: Properly extract passenger names from query params if provided
+  const queryPassengerNames = getQueryParam('passenger_names');
+  if (queryPassengerNames) {
+    passengerNames = queryPassengerNames.split(',').map(name => name.trim()).filter(Boolean);
+  } else {
+    passengerNames = extractPassengerNames(flightList[0] || {});
+  }
+  
   numPax = passengerNames.length || 3;
   if (passengerNames.length === 0) {
     for (let i = 1; i <= numPax; i++) passengerNames.push(`Passenger ${i}`);
   }
+const tripLabels = tripSummary
+  ? tripSummary.split("|").map(s => s.trim())
+  : [];
 
-  allParsedMaps = flightList.map((fd, fi) => {
-    perFlightSeats[fi] = {};
-    for (let p = 1; p <= numPax; p++) perFlightSeats[fi][p] = { seat: null, fee: 0, detail: '', unitKey: null };
-    return {
-      data: fd,
-      parsed: parseSeatMap(fd),
-      label: buildFlightLabel(fd),
-      flightNum: buildFlightNum(fd)
+allParsedMaps = flightList.map((fd, fi) => {
+  perFlightSeats[fi] = {};
+  for (let p = 1; p <= numPax; p++) {
+    perFlightSeats[fi][p] = {
+      seat: null,
+      fee: 0,
+      detail: '',
+      unitKey: null
     };
-  });
+  }
+
+  return {
+    data: fd,
+    parsed: parseSeatMap(fd),
+
+    // Use the corresponding route from trip_summary
+    label: tripLabels[fi] || `Flight ${fi + 1}`,
+
+    flightNum: buildFlightNum(fd),
+    journeyKey: resolveJourneyKeyForFlight(fd, fi)
+  };
+});
 
   buildFlightTabs();
   buildPaxCards();
@@ -330,16 +345,21 @@ function renderSeatMapData(flightList) {
 }
 
 function buildFlightLabel(data) {
-  const root = data?.seatMap ?? data;
-  const seg = (root?.segments ?? root?.legs ?? root?.journeys ?? [])[0];
-  if (seg) {
-    const from = seg.departureStation || seg.origin || seg.from;
-    const to = seg.arrivalStation || seg.destination || seg.to;
-    if (from && to) return `${from} - ${to}`;
-  }
-  if (root?.departureStation && root?.arrivalStation) return `${root.departureStation} - ${root.arrivalStation}`;
-  return 'Flight';
+    const root = data?.seatMap ?? data;
+    const seg = (root?.segments ?? root?.legs ?? [])[0];
+
+    if (seg) {
+        const from = seg.departureStation || seg.origin || seg.from;
+        const to = seg.arrivalStation || seg.destination || seg.to;
+
+        if (from && to) {
+            return `${from} → ${to}`;
+        }
+    }
+
+    return "Flight";
 }
+
 function buildFlightNum(data) {
   const root = data?.seatMap ?? data;
   return root?.name ? `Flight ${root.name}` : 'Flight details';
@@ -437,9 +457,21 @@ function updateUIForFlight() {
     }
   }
 
+  // FIXED: Use totalAmount from query params if available
   let totalFee = 0;
   perFlightSeats.forEach(fs => { Object.values(fs).forEach(p => { totalFee += p.fee; }); });
-  document.getElementById('price-display').textContent = '₹' + (BASE_PRICE + totalFee).toLocaleString('en-IN');
+  const priceDisplay = document.getElementById('price-display');
+
+  if (totalAmount > 0) {
+    const finalPrice = totalAmount + totalFee;
+    priceDisplay.textContent = currencyCode + ' ' + finalPrice.toLocaleString('en-IN');
+  } else if (totalFee > 0) {
+    // If only seat fees are available, show those instead of inventing a booking total.
+    priceDisplay.textContent = currencyCode + ' ' + totalFee.toLocaleString('en-IN');
+  } else {
+    // No booking total available yet.
+    priceDisplay.textContent = 'Loading...';
+  }
 }
 
 function updateConfirmButton() {
@@ -674,7 +706,7 @@ function hideTip() { tip.style.display = 'none'; }
 function buildSeatSelectionPayload() {
   const selectedItems = [];
   perFlightSeats.forEach((flightSeats, fi) => {
-    const journeyKey = journeyKeys[fi] || journeyKeys[0] || '';
+    const journeyKey = allParsedMaps[fi]?.journeyKey || journeyKeys[fi] || journeyKeys[0] || '';
     Object.entries(flightSeats || {}).forEach(([pid, seatInfo]) => {
       if (!seatInfo || !seatInfo.seat || !seatInfo.unitKey) return;
       const passengerKey = passengerKeys[Number(pid) - 1] || '';
@@ -694,31 +726,30 @@ function sendSeatSelectionToBot(payload) {
     `journey_keys=${encodeURIComponent(journeyKeys.join(','))}`,
     `passenger_keys=${encodeURIComponent(passengerKeys.join(','))}`,
     `selected_seats=${encodeURIComponent(payload)}`,
-    `capture_seat_selection=${encodeURIComponent(payload)}`
   );
 
   const data = parts.join('||');
 
   const encoded = encodeURIComponent(data.split(',').join(';;').split('&').join('^%'));
   const text = `{api_name:akasa_seat_selection,data:${encoded}}`;
-  const executeText = `{always execute function \`book_a_new_flight\` ,data:${encoded}}`;
+  const executeText = `{always execute function \`seat_selection\` ,data:${encoded}}`;
 
   if (window.parent && window.parent !== window) {
-    window.parent.postMessage(
-      `http://haptik-webview//perform-action?action=close&message=${text}&message_type=0`,
-      '*'
-    );
-    window.parent.postMessage(
-      `http://haptik-webview//perform-action?action=close&message=${executeText}&message_type=0`,
-      '*'
-    );
-  } else {
+    window.parent.postMessage(`http://haptik-webview//perform-action?action=close&message=${text}&message_type=0`, '*');
+    // window.parent.postMessage(`http://haptik-webview//perform-action?action=close&message=${executeText}&message_type=0`, '*');
+  }else {
     console.log('Seat selection payload:', payload);
   }
 }
 
-function goBack() { if (window.history.length > 1) window.history.back(); else alert('Use browser navigation to exit.'); }
-function skipSelection() { if (confirm('Skip seat selection?')) goBack(); }
+function toggleSummary() {
+  if (tripSummary) {
+    alert(`Trip Summary:\n${tripSummary}\n\nTotal: ${currencyCode} ${totalAmount.toLocaleString('en-IN')}`);
+  } else {
+    alert('No trip summary available');
+  }
+}
+
 function confirmSeat() {
   const payload = buildSeatSelectionPayload();
   if (!payload) { alert('Please select seats for passengers.'); return; }
@@ -730,17 +761,21 @@ function confirmSeat() {
   setTimeout(() => sendSeatSelectionToBot(payload), 500);
 }
 
-document.getElementById('json-file-input').addEventListener('change', function() {
-  const file = this.files[0]; if (!file) return;
-  document.getElementById('error-box').style.display = 'none';
-  document.getElementById('file-picker-area').style.display = 'none';
-  file.text().then(text => {
-    const raw = safeParseJSON(text);
-    renderSeatMapData(buildSeatMapPayload(raw));
-  }).catch(err => {
-    showError(`<strong>⚠ Could not load seat map</strong> ${err.message}`);
-  });
-});
+function resolveJourneyKeyForFlight(fd, fi) {
+  const root = fd?.seatMap ?? fd;
+  const seg = (root?.segments ?? root?.legs ?? root?.journeys ?? [])[0] || {};
+  const from = (seg.departureStation || seg.origin || seg.from || '').toUpperCase();
+  const to = (seg.arrivalStation || seg.destination || seg.to || '').toUpperCase();
+
+  const match = segmentMap.find(m =>
+    (m.origin || '').toUpperCase() === from &&
+    (m.destination || '').toUpperCase() === to
+  );
+  if (match) return match.journeyKey;
+
+  // fallback for old data without segment_map
+  return journeyKeys[fi] || journeyKeys[0] || '';
+}
 
 function init() {
   apiBaseUrl = getQueryParam('base_url') || '';
@@ -751,6 +786,15 @@ function init() {
   passengerKeys = (getQueryParam('passenger_keys') || '').split(',').filter(Boolean);
   customerNumber = getQueryParam('customer_number') || '';
   pnr = getQueryParam('pnr') || getQueryParam('record_locator') || '';
+  try {
+    segmentMap = JSON.parse(getQueryParam('segment_map') || '[]');
+  } catch (e) { segmentMap = []; }
+  
+  // FIXED: Read trip_summary, total_amount, and currency from query params
+  tripSummary = getQueryParam('trip_summary') || '';
+  const amountStr = getQueryParam('total_amount');
+  totalAmount = amountStr ? parseFloat(amountStr) : 0;
+  currencyCode = getQueryParam('currency') || 'INR';
 
   if (apiBaseUrl && authToken) {
     loadAndRenderFromApi();
