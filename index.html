@@ -158,21 +158,44 @@
   
   @media (max-width: 768px) {
     .seat { width: 28px; height: 24px; font-size: 6.5px; }
-    .col-hdr, .exit-lbl, .exit-spacer { width: 28px; font-size: 7px; }
+    .col-hdr {
+  width: 28px;
+  font-size: 7px;
+}
+
+.exit-side {
+  width: 28px;
+  height: 24px;
+  font-size: 7px;
+}
     .aisle-space { width: 14px; }
-    .col-headers, .exit-label-row { padding-left: 20px; }
+    
     .row-num { width: 18px; font-size: 8px; }
     .bottom-bar { padding: 8px 12px; flex-wrap: wrap; gap: 8px; }
     .btn-action { padding: 8px 14px; font-size: 12px; }
   }
   @media (max-width: 480px) {
     .seat { width: 23px; height: 20px; font-size: 5px; }
-    .col-hdr, .exit-lbl, .exit-spacer { width: 23px; }
+    /* .col-hdr, .exit-lbl, .exit-spacer { width: 23px; } */
     .aisle-space { width: 10px; }
     .row-num { width: 13px; font-size: 6px; }
     .seat-row { gap: 1.5px; margin: 0.5px 0; }
-    .col-headers { gap: 17px; padding-left: 18px; }
-    .exit-label-row { padding-left: 14px; gap: 1.5px; }
+    .col-hdr {
+    width: 23px;
+    }
+
+    .exit-side {
+    width: 23px;
+    height: 20px;
+    font-size: 6px;
+    }
+    .col-headers {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    margin-bottom: 4px;
+    }
+    /* .exit-label-row { padding-left: 14px; gap: 1.5px; } */
   }
 </style>
 </head>
@@ -635,39 +658,105 @@ function extractPassengerNames(data) {
 function renderSeatMap({ rowMap, sortedRows }) {
   const root = document.getElementById('seatmap-root');
   root.innerHTML = '';
+
   const colSet = new Set();
-  sortedRows.forEach(r => Object.keys(rowMap[r]).forEach(c => colSet.add(c)));
+
+  sortedRows.forEach(r => {
+    Object.keys(rowMap[r]).forEach(c => colSet.add(c));
+  });
+
   const allCols = [...colSet].sort();
   const midIdx = Math.ceil(allCols.length / 2);
-  const LEFT = allCols.slice(0, midIdx), RIGHT = allCols.slice(midIdx);
 
-  const hdr = document.createElement('div'); hdr.className = 'col-headers';
-  [...LEFT, null, ...RIGHT].forEach(c => {
+  const LEFT = allCols.slice(0, midIdx);
+  const RIGHT = allCols.slice(midIdx);
+
+  // Column headers
+  const hdr = document.createElement('div');
+  hdr.className = 'col-headers';
+
+  // Space for left Exit + row number
+  const leftExitHdr = document.createElement('div');
+  leftExitHdr.className = 'exit-side empty';
+  hdr.appendChild(leftExitHdr);
+
+  const rowHdr = document.createElement('div');
+  rowHdr.className = 'row-num';
+  hdr.appendChild(rowHdr);
+
+  LEFT.forEach(c => {
     const d = document.createElement('div');
-    d.className = c === null ? 'aisle-space' : 'col-hdr';
-    if (c) d.textContent = c;
+    d.className = 'col-hdr';
+    d.textContent = c;
     hdr.appendChild(d);
   });
+
+  const aisleHdr = document.createElement('div');
+  aisleHdr.className = 'aisle-space';
+  hdr.appendChild(aisleHdr);
+
+  RIGHT.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'col-hdr';
+    d.textContent = c;
+    hdr.appendChild(d);
+  });
+
+  const rightExitHdr = document.createElement('div');
+  rightExitHdr.className = 'exit-side empty';
+  hdr.appendChild(rightExitHdr);
+
   root.appendChild(hdr);
 
-  let prevExit = false;
-  sortedRows.forEach((rowNum, idx) => {
+  // Seat rows
+  sortedRows.forEach(rowNum => {
     const rowData = rowMap[rowNum] ?? {};
-    const isExit = Object.keys(rowData).some(c => rowData[c]?.isExit);
-    if (isExit && !prevExit) root.appendChild(buildExitLabelRow(rowData, LEFT, RIGHT));
 
-    const rowDiv = document.createElement('div'); rowDiv.className = 'seat-row';
-    const numDiv = document.createElement('div'); numDiv.className = 'row-num'; numDiv.textContent = rowNum;
+    const isExit = Object.values(rowData).some(
+      seat => seat?.isExit
+    );
+
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'seat-row';
+
+    // LEFT EXIT
+    const leftExit = document.createElement('div');
+    leftExit.className = `exit-side ${isExit ? '' : 'empty'}`;
+    leftExit.textContent = isExit ? 'Exit' : '';
+    rowDiv.appendChild(leftExit);
+
+    // ROW NUMBER
+    const numDiv = document.createElement('div');
+    numDiv.className = 'row-num';
+    numDiv.textContent = rowNum;
     rowDiv.appendChild(numDiv);
-    LEFT.forEach(c => rowDiv.appendChild(buildSeat(rowData[c], rowNum, c)));
-    const aisle = document.createElement('div'); aisle.className = 'aisle-space'; rowDiv.appendChild(aisle);
-    RIGHT.forEach(c => rowDiv.appendChild(buildSeat(rowData[c], rowNum, c)));
-    root.appendChild(rowDiv);
 
-    const nextRow = sortedRows[idx + 1];
-    const nextIsExit = nextRow ? Object.keys(rowMap[nextRow] ?? {}).some(c => rowMap[nextRow][c]?.isExit) : false;
-    if (isExit && !nextIsExit) root.appendChild(buildExitLabelRow(rowData, LEFT, RIGHT));
-    prevExit = isExit;
+    // LEFT SEATS
+    LEFT.forEach(c => {
+      rowDiv.appendChild(
+        buildSeat(rowData[c], rowNum, c)
+      );
+    });
+
+    // AISLE
+    const aisle = document.createElement('div');
+    aisle.className = 'aisle-space';
+    rowDiv.appendChild(aisle);
+
+    // RIGHT SEATS
+    RIGHT.forEach(c => {
+      rowDiv.appendChild(
+        buildSeat(rowData[c], rowNum, c)
+      );
+    });
+
+    // RIGHT EXIT
+    const rightExit = document.createElement('div');
+    rightExit.className = `exit-side ${isExit ? '' : 'empty'}`;
+    rightExit.textContent = isExit ? 'Exit' : '';
+    rowDiv.appendChild(rightExit);
+
+    root.appendChild(rowDiv);
   });
 }
 
