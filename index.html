@@ -102,9 +102,33 @@
   .s-empty  { background: transparent; border-color: transparent; cursor: default; pointer-events: none; }
   .s-blocked{ background: #f3f4f6; border-color: #ddd; color: #bbb; cursor: not-allowed; }
 
-  .exit-label-row { display: flex; align-items: center; gap: 3px; margin: 4px 0; padding-left: 28px; }
-  .exit-lbl    { background: #e8630a; color: #fff; font-size: 9px; font-weight: 800; padding: 2px 0; border-radius: 3px; text-align: center; letter-spacing: 0.5px; width: 38px; flex-shrink: 0; }
-  .exit-spacer { width: 38px; flex-shrink: 0; }
+ .exit-side {
+  width: 38px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e8630a;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
+.exit-side.empty {
+  visibility: hidden;
+}
+
+.exit-left {
+  margin-right: 3px;
+}
+
+.exit-right {
+  margin-left: 3px;
+}
+
   
   /* ── BOTTOM BAR ── */
   .bottom-bar {
@@ -299,49 +323,100 @@ async function loadAndRenderFromApi() {
   }
 }
 
-function renderSeatMapData(flightList) {
-  // FIXED: Properly extract passenger names from query params if provided
-  const queryPassengerNames = getQueryParam('passenger_names');
-  if (queryPassengerNames) {
-    passengerNames = queryPassengerNames.split(',').map(name => name.trim()).filter(Boolean);
-  } else {
-    passengerNames = extractPassengerNames(flightList[0] || {});
-  }
-  
-  numPax = passengerNames.length || 3;
-  if (passengerNames.length === 0) {
-    for (let i = 1; i <= numPax; i++) passengerNames.push(`Passenger ${i}`);
-  }
-const tripLabels = tripSummary
-  ? tripSummary.split("|").map(s => s.trim())
-  : [];
+function renderSeatMap({ rowMap, sortedRows }) {
+  const root = document.getElementById('seatmap-root');
+  root.innerHTML = '';
 
-allParsedMaps = flightList.map((fd, fi) => {
-  perFlightSeats[fi] = {};
-  for (let p = 1; p <= numPax; p++) {
-    perFlightSeats[fi][p] = {
-      seat: null,
-      fee: 0,
-      detail: '',
-      unitKey: null
-    };
-  }
+  const colSet = new Set();
+  sortedRows.forEach(r => {
+    Object.keys(rowMap[r]).forEach(c => colSet.add(c));
+  });
 
-  return {
-    data: fd,
-    parsed: parseSeatMap(fd),
+  const allCols = [...colSet].sort();
+  const midIdx = Math.ceil(allCols.length / 2);
 
-    // Use the corresponding route from trip_summary
-    label: tripLabels[fi] || `Flight ${fi + 1}`,
+  const LEFT = allCols.slice(0, midIdx);
+  const RIGHT = allCols.slice(midIdx);
 
-    flightNum: buildFlightNum(fd),
-    journeyKey: resolveJourneyKeyForFlight(fd, fi)
-  };
-});
+  // Column headers
+  const hdr = document.createElement('div');
+  hdr.className = 'col-headers';
 
-  buildFlightTabs();
-  buildPaxCards();
-  switchToFlight(0);
+  // Empty space for left Exit label
+  const leftExitHdr = document.createElement('div');
+  leftExitHdr.className = 'exit-side empty';
+  hdr.appendChild(leftExitHdr);
+
+  LEFT.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'col-hdr';
+    d.textContent = c;
+    hdr.appendChild(d);
+  });
+
+  const aisleHdr = document.createElement('div');
+  aisleHdr.className = 'aisle-space';
+  hdr.appendChild(aisleHdr);
+
+  RIGHT.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'col-hdr';
+    d.textContent = c;
+    hdr.appendChild(d);
+  });
+
+  // Empty space for right Exit label
+  const rightExitHdr = document.createElement('div');
+  rightExitHdr.className = 'exit-side empty';
+  hdr.appendChild(rightExitHdr);
+
+  root.appendChild(hdr);
+
+  sortedRows.forEach(rowNum => {
+    const rowData = rowMap[rowNum] ?? {};
+
+    const isExit = Object.keys(rowData).some(
+      c => rowData[c]?.isExit
+    );
+
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'seat-row';
+
+    // LEFT EXIT
+    const leftExit = document.createElement('div');
+    leftExit.className = `exit-side exit-left ${isExit ? '' : 'empty'}`;
+    leftExit.textContent = isExit ? 'Exit' : '';
+    rowDiv.appendChild(leftExit);
+
+    // Row number
+    const numDiv = document.createElement('div');
+    numDiv.className = 'row-num';
+    numDiv.textContent = rowNum;
+    rowDiv.appendChild(numDiv);
+
+    // LEFT SEATS
+    LEFT.forEach(c => {
+      rowDiv.appendChild(buildSeat(rowData[c], rowNum, c));
+    });
+
+    // AISLE
+    const aisle = document.createElement('div');
+    aisle.className = 'aisle-space';
+    rowDiv.appendChild(aisle);
+
+    // RIGHT SEATS
+    RIGHT.forEach(c => {
+      rowDiv.appendChild(buildSeat(rowData[c], rowNum, c));
+    });
+
+    // RIGHT EXIT
+    const rightExit = document.createElement('div');
+    rightExit.className = `exit-side exit-right ${isExit ? '' : 'empty'}`;
+    rightExit.textContent = isExit ? 'Exit' : '';
+    rowDiv.appendChild(rightExit);
+
+    root.appendChild(rowDiv);
+  });
 }
 
 function buildFlightLabel(data) {
