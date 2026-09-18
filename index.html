@@ -807,7 +807,11 @@ function buildSeatSelectionPayload() {
       if (!seatInfo || !seatInfo.seat || !seatInfo.unitKey) return;
       const passengerKey = passengerKeys[Number(pid) - 1] || '';
       if (!journeyKey || !passengerKey) return;
-      selectedItems.push(`${journeyKey}|${passengerKey}|${seatInfo.unitKey}`);
+      // Include the readable seat number as field 4 for the final summary.
+      // The backend strips this field before POST /seats.
+      selectedItems.push(
+        `${journeyKey}|${passengerKey}|${seatInfo.unitKey}|${encodeURIComponent(seatInfo.seat)}`
+      );
     });
   });
   return selectedItems.join(';');
