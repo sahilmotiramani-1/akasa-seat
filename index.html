@@ -317,8 +317,43 @@ async function loadAndRenderFromApi() {
 
 function renderSeatMapData(flightList) {
   const queryPassengerNames = getQueryParam('passenger_names');
+
   if (queryPassengerNames) {
-    passengerNames = queryPassengerNames.split(',').map(n => n.trim()).filter(Boolean);
+    let parsedPassengerNames = [];
+
+    // passenger_names may arrive as a JSON array:
+    // [\"Manasi Nandgaonkar\", \"Another Passenger\"]
+    // Do not display the JSON brackets/quotes in the passenger card.
+    try {
+      const decodedNames = decodeURIComponent(queryPassengerNames);
+      const parsed = JSON.parse(decodedNames);
+
+      if (Array.isArray(parsed)) {
+        parsedPassengerNames = parsed
+          .map(name => {
+            if (typeof name === 'string') return name.trim();
+
+            if (name && typeof name === 'object') {
+              return (
+                name.name ||
+                [name.firstName, name.lastName].filter(Boolean).join(' ')
+              ).trim();
+            }
+
+            return '';
+          })
+          .filter(Boolean);
+      }
+    } catch (e) {
+      // Fallback for comma-separated passenger names.
+      parsedPassengerNames = queryPassengerNames
+        .replace(/^\\[|\\]$/g, '')
+        .split(',')
+        .map(name => name.trim().replace(/^["']|["']$/g, ''))
+        .filter(Boolean);
+    }
+
+    passengerNames = parsedPassengerNames;
   } else {
     passengerNames = extractPassengerNames(flightList[0] || {});
   }
