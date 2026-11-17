@@ -460,6 +460,7 @@ function selectPax(i) {
   document.querySelectorAll('.pax-card').forEach(c => c.classList.remove('active-pax'));
   document.getElementById(`pax-${i}`)?.classList.add('active-pax');
   refreshSeatVisuals();
+  updateUIForFlight();
 }
 
 function switchToFlight(idx) {
@@ -520,13 +521,22 @@ function handleConfirm() {
 }
 
 /* ────────────────── PARSING ────────────────── */
-function getSeatPrice(info) {
-  const amount = Number(info?.price ?? 0);
+function getSeatPrice(info, paxIndex = currentPaxId) {
+  // Seat pricing is passenger-specific. Flexi/complimentary entitlements can
+  // make the same seat free for one passenger and chargeable for another.
+  const paxKey = passengerKeys[paxIndex - 1] || '';
+  const priceMap = info?.pricesByPax ?? {};
+  const rawAmount = (paxKey && Object.prototype.hasOwnProperty.call(priceMap, paxKey))
+    ? priceMap[paxKey]
+    : (Object.prototype.hasOwnProperty.call(priceMap, String(paxIndex))
+        ? priceMap[String(paxIndex)]
+        : 0);
+  const amount = Number(rawAmount ?? 0);
   return Number.isFinite(amount) && amount > 0 ? amount : 0;
 }
 
-function formatSeatPrice(info) {
-  const amount = getSeatPrice(info);
+function formatSeatPrice(info, paxIndex = currentPaxId) {
+  const amount = getSeatPrice(info, paxIndex);
   return amount === 0 ? 'Free' : '₹' + amount.toLocaleString('en-IN');
 }
 
@@ -541,24 +551,39 @@ function parseSeatMap(data) {
   });
   if (allUnits.length === 0) throw new Error('No seat units found in JSON.');
 
-  // Seat prices must come from the API's SFE seat-fee component only.
-  // Do not add C27/S27 tax components; those are not the seat's displayed base price.
-  const fees = Object.create(null);
-  Object.values(data?.fees ?? availability?.fees ?? {}).forEach(paxFees => {
-    Object.entries(paxFees?.groups ?? {}).forEach(([groupKey, grp]) => {
-      const groupId = String(grp?.group ?? groupKey ?? '');
-      if (!groupId || Object.prototype.hasOwnProperty.call(fees, groupId)) return;
+  // Build a separate SFE price table for EACH passenger. Do not flatten all
+  // passengers into one group map: Flexi passengers may have complimentary
+  // seats while passengers on another fare may pay for the same seat group.
+  // C27/S27 tax lines are deliberately excluded from the displayed seat price.
+  const feesByPax = Object.create(null);
+  const rawFees = data?.fees ?? availability?.fees ?? {};
+  const feeEntries = Array.isArray(rawFees)
+    ? rawFees.map((value, index) => [String(value?.paxKey ?? value?.passengerKey ?? index + 1), value])
+    : Object.entries(rawFees);
 
+  feeEntries.forEach(([paxKey, paxFees], paxIndex) => {
+    const paxPriceMap = Object.create(null);
+    const groups = paxFees?.groups ?? {};
+    const groupEntries = Array.isArray(groups)
+      ? groups.map((group, index) => [String(group?.group ?? index), group])
+      : Object.entries(groups);
+
+    groupEntries.forEach(([groupKey, grp]) => {
+      const groupId = String(grp?.group ?? groupKey ?? '');
+      if (!groupId) return;
       const sfeFee = (grp?.fees ?? []).find(
         fee => String(fee?.code ?? '').toUpperCase() === 'SFE'
       );
       const sfeCharge = (sfeFee?.serviceCharges ?? []).find(
         charge => String(charge?.code ?? charge?.ticketCode ?? '').toUpperCase() === 'SFE'
       );
-
       const amount = Number(sfeCharge?.amount);
-      fees[groupId] = Number.isFinite(amount) && amount > 0 ? amount : 0;
+      paxPriceMap[groupId] = Number.isFinite(amount) && amount > 0 ? amount : 0;
     });
+
+    feesByPax[String(paxKey)] = paxPriceMap;
+    // Support APIs that key fee records by passenger order rather than paxKey.
+    feesByPax[String(paxIndex + 1)] = paxPriceMap;
   });
 
   const hasProp = (u, code) => (u.properties ?? []).some(
@@ -630,10 +655,12 @@ function parseSeatMap(data) {
       avail: isOpen ? 1 : 0,
       assignable: !!u.assignable && isOpen,
       group: u.group ?? 0,
-      price: (() => {
-        const amount = Number(fees[String(u.group ?? 0)] ?? 0);
-        return Number.isFinite(amount) && amount > 0 ? amount : 0;
-      })(),
+      pricesByPax: Object.fromEntries(
+        Object.entries(feesByPax).map(([paxKey, paxPriceMap]) => [
+          paxKey,
+          Number(paxPriceMap[String(u.group ?? 0)] ?? 0)
+        ])
+      ),
       isWindow: hasProp(u, 'WINDOW'),
       isAisle: hasProp(u, 'AISLE'),
       isLeg: hasProp(u, 'LEGROOM'),
@@ -768,11 +795,11 @@ function buildSeat(info, rowNum, colLetter) {
     div.title = `${info.des} — Occupied`;
   } else {
     div.classList.add(...seatFaceClasses(info));
-    div.textContent = formatSeatPrice(info);
+    div.textContent = formatSeatPrice(info, currentPaxId);
   }
 
   div.dataset.rowCol = `${rowNum}${colLetter}`;
-  div.dataset.price = String(getSeatPrice(info));
+  div.dataset.pricesByPax = JSON.stringify(info.pricesByPax ?? {});
   div.dataset.isLeg = info.isLeg ? '1' : '0';
   div.dataset.isExit = info.isExit ? '1' : '0';
   div.dataset.isRecliner = info.isRecliner ? '1' : '0';
@@ -809,7 +836,7 @@ function handleSeatClick(div, info, rowNum, colLetter) {
     refreshSeatVisuals(); updateUIForFlight(); updateFlightTabs(); return;
   }
 
-  seats[currentPaxId] = { seat: id, fee: getSeatPrice(info), detail: buildSeatDetail(info), unitKey: info.key };
+  seats[currentPaxId] = { seat: id, fee: getSeatPrice(info, currentPaxId), detail: buildSeatDetail(info), unitKey: info.key };
 
   const nextUnseated = Object.keys(seats).map(Number).find(p => p > currentPaxId && !seats[p]?.seat);
   if (nextUnseated) currentPaxId = nextUnseated;
@@ -845,14 +872,22 @@ function refreshSeatVisuals() {
       seat.classList.add('s-blocked');
       seat.textContent = '✕';
     } else {
+      let pricesByPax = {};
+      try { pricesByPax = JSON.parse(seat.dataset.pricesByPax || '{}'); } catch (_) {}
+      const paxKey = passengerKeys[currentPaxId - 1] || '';
+      const rawPrice = Object.prototype.hasOwnProperty.call(pricesByPax, paxKey)
+        ? pricesByPax[paxKey]
+        : (Object.prototype.hasOwnProperty.call(pricesByPax, String(currentPaxId))
+            ? pricesByPax[String(currentPaxId)] : 0);
+      const activePrice = Number(rawPrice) > 0 ? Number(rawPrice) : 0;
       seat.classList.add(...seatFaceClasses({
         isLeg: seat.dataset.isLeg === '1',
         isExit: seat.dataset.isExit === '1',
         isRecliner: seat.dataset.isRecliner === '1',
         isNonReclining: seat.dataset.isNonReclining === '1',
-        price: +seat.dataset.price
+        price: activePrice
       }));
-      seat.textContent = (+seat.dataset.price) > 0 ? '₹' + (+seat.dataset.price).toLocaleString('en-IN') : 'Free';
+      seat.textContent = activePrice > 0 ? '₹' + activePrice.toLocaleString('en-IN') : 'Free';
     }
   });
 }
@@ -871,7 +906,7 @@ function showTip(e, info, r, c) {
   if (info.noChild) lines.push('No children');
   if (info.isDisab) lines.push('Accessibility seat');
   if (isPreferredSeat(info, currentPaxId)) lines.push('Preferred seat');
-  lines.push(info.avail === 0 ? 'Occupied' : 'Price: ' + formatSeatPrice(info));
+  lines.push(info.avail === 0 ? 'Occupied' : 'Price: ' + formatSeatPrice(info, currentPaxId));
   tip.innerHTML = lines.join('<br>'); tip.style.display = 'block'; moveTip(e);
 }
 function moveTip(e) { tip.style.left = (e.clientX + 14) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; }
