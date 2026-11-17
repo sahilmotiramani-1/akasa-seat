@@ -244,6 +244,75 @@ let totalAmount = 0;
 let currencyCode = 'INR';
 let segmentMap = [];
 
+/* ────────────────── NON-BLOCKING GOOGLE SHEETS LOGGING ────────────────── */
+const GOOGLE_SHEET_LOG_URL = 'https://script.google.com/macros/s/AKfycbyUgQCUovSXuLOkcmH2Rn6WY69yCXJdWa6NWKiy_UBF037QWJKSdwM04HSPJPM3Jk9F/exec';
+const LOG_SESSION_ID = 'AKASA_' + Date.now() + '_' +
+  Math.random().toString(36).slice(2, 9);
+
+// Redact credentials and passenger/customer personal data before logging.
+function sanitizeLogData(value) {
+  try {
+    const sensitiveKey = /authorization|token|api.?key|password|email|phone|mobile|first.?name|last.?name|full.?name|\bname\b|surname|paxkey|passengerkey|customer.?number|date.?of.?birth|\bdob\b|document.?number/i;
+    function clean(item) {
+      if (Array.isArray(item)) return item.map(clean);
+      if (item && typeof item === 'object') {
+        const output = {};
+        Object.keys(item).forEach(key => {
+          output[key] = sensitiveKey.test(key) ? '[REDACTED]' : clean(item[key]);
+        });
+        return output;
+      }
+      return item;
+    }
+    const cleaned = clean(value);
+    const serialized = JSON.stringify(cleaned);
+    // Avoid oversized Google Sheets cells / Apps Script requests.
+    if (serialized && serialized.length > 28000) {
+      return { truncated: true, preview: serialized.slice(0, 27000) };
+    }
+    return cleaned;
+  } catch (_) {
+    return { loggingError: 'Could not sanitize log data' };
+  }
+}
+
+function getMaskedPnr() {
+  try {
+    const value = String(pnr || '');
+    return value.length > 2 ? value.slice(0, 2) + '****' : (value ? '****' : '');
+  } catch (_) {
+    return '';
+  }
+}
+
+// Fire-and-forget: this function never awaits Sheets and never throws.
+function sendLogToSheet(logData) {
+  try {
+    if (!GOOGLE_SHEET_LOG_URL) return;
+    const details = logData && typeof logData === 'object' ? logData : {};
+    const payload = {
+      timestamp: new Date().toISOString(),
+      sessionId: LOG_SESSION_ID,
+      pnr: getMaskedPnr(),
+      ...details
+    };
+    // Re-apply the masked PNR after merging caller-supplied fields.
+    payload.pnr = getMaskedPnr();
+    const body = JSON.stringify(sanitizeLogData(payload));
+    fetch(GOOGLE_SHEET_LOG_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body,
+      keepalive: true
+    }).catch(() => {
+      // Deliberately ignore logging network failures.
+    });
+  } catch (_) {
+    // Logging must never interrupt the booking / seat-selection flow.
+  }
+}
+
 function showLoading(v) { document.getElementById('loading').style.display = v ? 'block' : 'none'; }
 function showError(html) {
   const b = document.getElementById('error-box');
@@ -283,28 +352,116 @@ function buildSeatMapPayload(raw) {
 }
 
 async function fetchSeatMapFromApi() {
+  const endpoint = `${apiBaseUrl}/api/ibe/agents/seatmap`;
+  const startedAt = Date.now();
   const headers = {
     'Authorization': authToken,
     'Content-Type': 'application/json',
     'QP-BOT-API-KEY': qpApiKey,
     'QP-BOT-SOURCE': qpSource
   };
-  const response = await fetch(`${apiBaseUrl}/api/ibe/agents/seatmap`, { headers });
-  if (!response.ok) throw new Error(`Seatmap API failed (${response.status})`);
-  return response.json();
+
+  let response = null;
+  try {
+    response = await fetch(endpoint, { headers });
+    const responseText = await response.text();
+    let data;
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch (parseError) {
+      sendLogToSheet({
+        event: 'SEATMAP_API', endpoint: '/api/ibe/agents/seatmap',
+        method: 'GET', status: response.status,
+        duration: Date.now() - startedAt,
+        response: { invalidJson: true, responseLength: responseText.length },
+        error: 'API returned invalid JSON', result: 'FAILED'
+      });
+      throw new Error('Seatmap API returned invalid JSON');
+    }
+
+    sendLogToSheet({
+      event: 'SEATMAP_API', endpoint: '/api/ibe/agents/seatmap',
+      method: 'GET', status: response.status,
+      duration: Date.now() - startedAt,
+      response: data,
+      result: response.ok ? 'SUCCESS' : 'FAILED',
+      error: response.ok ? '' : `HTTP ${response.status}`
+    });
+
+    if (!response.ok) throw new Error(`Seatmap API failed (${response.status})`);
+    return data;
+  } catch (error) {
+    // Do not duplicate the HTTP / invalid-JSON logs already written above.
+    if (!response) {
+      sendLogToSheet({
+        event: 'SEATMAP_API', endpoint: '/api/ibe/agents/seatmap',
+        method: 'GET', duration: Date.now() - startedAt,
+        error: String(error && error.message ? error.message : error),
+        result: 'FAILED'
+      });
+    }
+    throw error;
+  }
 }
 
 async function fetchPreferredSeatsFromApi() {
-  if (!customerNumber) return [];
+  if (!customerNumber) {
+    sendLogToSheet({
+      event: 'PREFERRED_SEATS_API_SKIPPED',
+      endpoint: '/api/ibe/agents/preferred-seats',
+      result: 'SKIPPED', error: 'Customer number not provided'
+    });
+    return [];
+  }
+
+  const endpoint = `${apiBaseUrl}/api/ibe/agents/preferred-seats?customerNumber=${encodeURIComponent(customerNumber)}`;
+  const startedAt = Date.now();
   const headers = {
     'Authorization': authToken,
     'QP-BOT-API-KEY': qpApiKey,
     'QP-BOT-SOURCE': qpSource
   };
-  const response = await fetch(`${apiBaseUrl}/api/ibe/agents/preferred-seats?customerNumber=${encodeURIComponent(customerNumber)}`, { headers });
-  if (!response.ok) return [];
-  const json = await response.json();
-  return Array.isArray(json?.data) ? json.data : [];
+
+  let response = null;
+  try {
+    response = await fetch(endpoint, { headers });
+    const responseText = await response.text();
+    let json;
+    try {
+      json = responseText ? JSON.parse(responseText) : {};
+    } catch (_) {
+      sendLogToSheet({
+        event: 'PREFERRED_SEATS_API',
+        endpoint: '/api/ibe/agents/preferred-seats', method: 'GET',
+        status: response.status, duration: Date.now() - startedAt,
+        response: { invalidJson: true, responseLength: responseText.length },
+        error: 'API returned invalid JSON', result: 'FAILED'
+      });
+      return [];
+    }
+
+    sendLogToSheet({
+      event: 'PREFERRED_SEATS_API',
+      endpoint: '/api/ibe/agents/preferred-seats', method: 'GET',
+      status: response.status, duration: Date.now() - startedAt,
+      response: json, result: response.ok ? 'SUCCESS' : 'FAILED',
+      error: response.ok ? '' : `HTTP ${response.status}`
+    });
+
+    if (!response.ok) return [];
+    return Array.isArray(json?.data) ? json.data : [];
+  } catch (error) {
+    if (!response) {
+      sendLogToSheet({
+        event: 'PREFERRED_SEATS_API',
+        endpoint: '/api/ibe/agents/preferred-seats', method: 'GET',
+        duration: Date.now() - startedAt,
+        error: String(error && error.message ? error.message : error),
+        result: 'FAILED'
+      });
+    }
+    return [];
+  }
 }
 
 function isPreferredSeat(info, paxIndex) {
@@ -327,6 +484,12 @@ async function loadAndRenderFromApi() {
     showLoading(false);
     showMap();
   } catch (err) {
+    sendLogToSheet({
+      event: 'SEATMAP_LOAD_OR_RENDER_FAILURE',
+      endpoint: 'loadAndRenderFromApi',
+      error: String(err && err.message ? err.message : err),
+      result: 'FAILED'
+    });
     showLoading(false);
     showError(`<strong>⚠ Could not load seat map</strong> ${err.message}<br><br>
       <b>Common fixes:</b><br>• Verify the bot passed a valid auth token and API base URL`);
@@ -832,11 +995,26 @@ function handleSeatClick(div, info, rowNum, colLetter) {
   if (isSeatTakenByOther(id, currentPaxId)) { alert('This seat is already selected by another passenger.'); return; }
 
   if (seats[currentPaxId]?.seat === id) {
+    const removedSeat = id;
     seats[currentPaxId] = { seat: null, fee: 0, detail: '', unitKey: null };
+    sendLogToSheet({
+      event: 'SEAT_DESELECTED', endpoint: 'seat-selection',
+      request: { seat: removedSeat, passengerIndex: currentPaxId, flightIndex: currentFlightIdx },
+      result: 'SUCCESS'
+    });
     refreshSeatVisuals(); updateUIForFlight(); updateFlightTabs(); return;
   }
 
   seats[currentPaxId] = { seat: id, fee: getSeatPrice(info, currentPaxId), detail: buildSeatDetail(info), unitKey: info.key };
+  sendLogToSheet({
+    event: 'SEAT_SELECTED', endpoint: 'seat-selection',
+    request: {
+      seat: id, passengerIndex: currentPaxId,
+      flightIndex: currentFlightIdx,
+      amount: getSeatPrice(info, currentPaxId), currency: currencyCode
+    },
+    result: 'SUCCESS'
+  });
 
   const nextUnseated = Object.keys(seats).map(Number).find(p => p > currentPaxId && !seats[p]?.seat);
   if (nextUnseated) currentPaxId = nextUnseated;
@@ -954,6 +1132,16 @@ function sendSeatSelectionToBot(payload) {
   const encoded = encodeURIComponent(data.split(',').join(';;').split('&').join('^%'));
   const text = `Your seats are selected {always execute function \`book_a_new_flight\`,data:${encoded}}`;
 
+  sendLogToSheet({
+    event: 'SEAT_SELECTION_SENT_TO_BOT', endpoint: 'haptik-webview/perform-action',
+    request: {
+      selectedSeatCount: perFlightSeats.reduce((total, flight) =>
+        total + Object.values(flight || {}).filter(seat => seat?.seat).length, 0),
+      seatAmount, currency: currencyCode
+    },
+    result: 'HANDOFF_ATTEMPTED'
+  });
+
   if (window.parent && window.parent !== window) {
     window.parent.postMessage(`http://haptik-webview//perform-action?action=close&message=${text}&message_type=0`, '*');
   } else {
@@ -963,7 +1151,25 @@ function sendSeatSelectionToBot(payload) {
 
 function confirmSeat() {
   const payload = buildSeatSelectionPayload();
-  if (!payload) { alert('Please select seats for passengers.'); return; }
+  if (!payload) {
+    sendLogToSheet({
+      event: 'SEAT_CONFIRMATION_BLOCKED', endpoint: 'seat-confirmation',
+      error: 'No valid seat selection payload was generated', result: 'FAILED'
+    });
+    alert('Please select seats for passengers.');
+    return;
+  }
+
+  sendLogToSheet({
+    event: 'SEAT_CONFIRMATION_ATTEMPT', endpoint: 'seat-confirmation',
+    request: {
+      selectedSeatCount: perFlightSeats.reduce((total, flight) =>
+        total + Object.values(flight || {}).filter(seat => seat?.seat).length, 0),
+      totalAmount: getSelectedSeatAmount(), currency: currencyCode
+    },
+    result: 'ATTEMPTED'
+  });
+
   const btn = document.getElementById('confirm-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
   setTimeout(() => sendSeatSelectionToBot(payload), 500);
@@ -1000,6 +1206,18 @@ function init() {
   if (apiBaseUrl && authToken) {
     loadAndRenderFromApi();
   } else {
+    sendLogToSheet({
+      event: 'MISSING_BOOKING_CONTEXT', endpoint: 'init',
+      request: {
+        hasBaseUrl: !!apiBaseUrl,
+        hasAuthToken: !!authToken,
+        hasQpApiKey: !!qpApiKey,
+        journeyKeyCount: journeyKeys.length,
+        passengerKeyCount: passengerKeys.length
+      },
+      error: 'Required auth token or API base URL missing',
+      result: 'FAILED'
+    });
     showError('<strong>⚠ Missing booking context</strong> The bot did not provide the required auth token and API base URL.');
   }
 }
