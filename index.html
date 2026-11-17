@@ -288,7 +288,11 @@ function getMaskedPnr() {
 // Fire-and-forget: this function never awaits Sheets and never throws.
 function sendLogToSheet(logData) {
   try {
-    if (!GOOGLE_SHEET_LOG_URL) return;
+    if (!GOOGLE_SHEET_LOG_URL) {
+      console.error('[SheetsLog] Missing Google Apps Script URL');
+      return;
+    }
+
     const details = logData && typeof logData === 'object' ? logData : {};
     const payload = {
       timestamp: new Date().toISOString(),
@@ -296,20 +300,29 @@ function sendLogToSheet(logData) {
       pnr: getMaskedPnr(),
       ...details
     };
-    // Re-apply the masked PNR after merging caller-supplied fields.
+
+    // Never allow a caller to replace the masked PNR.
     payload.pnr = getMaskedPnr();
+
     const body = JSON.stringify(sanitizeLogData(payload));
+
+    // Visible diagnostics: no credentials or passenger details are printed.
+    console.info('[SheetsLog] Sending event:', payload.event || 'UNNAMED_EVENT');
+
     fetch(GOOGLE_SHEET_LOG_URL, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body,
       keepalive: true
-    }).catch(() => {
-      // Deliberately ignore logging network failures.
+    }).then(() => {
+      // With no-cors the response is opaque; this confirms only that fetch settled.
+      console.info('[SheetsLog] Request dispatched:', payload.event || 'UNNAMED_EVENT');
+    }).catch(error => {
+      console.error('[SheetsLog] Network request failed:', String(error));
     });
-  } catch (_) {
-    // Logging must never interrupt the booking / seat-selection flow.
+  } catch (error) {
+    console.error('[SheetsLog] Could not create/send log:', String(error));
   }
 }
 
@@ -354,6 +367,13 @@ function buildSeatMapPayload(raw) {
 async function fetchSeatMapFromApi() {
   const endpoint = `${apiBaseUrl}/api/ibe/agents/seatmap`;
   const startedAt = Date.now();
+
+  sendLogToSheet({
+    event: 'SEATMAP_API_STARTED',
+    endpoint: '/api/ibe/agents/seatmap',
+    method: 'GET',
+    result: 'STARTED'
+  });
   const headers = {
     'Authorization': authToken,
     'Content-Type': 'application/json',
@@ -1188,6 +1208,22 @@ function resolveJourneyKeyForFlight(fd, fi) {
 }
 
 function init() {
+  // This is the first event: it proves the HTML executed and attempted logging.
+  sendLogToSheet({
+    event: 'PAGE_OPENED',
+    endpoint: 'seat-selection/init',
+    method: 'PAGE',
+    result: 'STARTED',
+    request: {
+      hasBaseUrl: !!getQueryParam('base_url'),
+      hasAuthToken: !!getQueryParam('auth_token'),
+      hasQpApiKey: !!getQueryParam('qp_bot_api_key'),
+      hasPnr: !!getQueryParam('pnr'),
+      journeyKeyCount: (getQueryParam('journey_keys') || '').split(',').filter(Boolean).length,
+      passengerKeyCount: (getQueryParam('passenger_keys') || '').split(',').filter(Boolean).length
+    }
+  });
+
   apiBaseUrl = getQueryParam('base_url') || '';
   authToken = getQueryParam('auth_token') || '';
   qpApiKey = getQueryParam('qp_bot_api_key') || '';
