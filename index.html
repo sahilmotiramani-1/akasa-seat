@@ -388,7 +388,7 @@ async function fetchSeatMapFromApi() {
 
   let response = null;
   try {
-    response = await fetch(endpoint, { headers });
+    response = await fetch(endpoint, { headers, referrerPolicy: 'no-referrer' });
     const responseText = await response.text();
     let data;
     try {
@@ -449,7 +449,7 @@ async function fetchPreferredSeatsFromApi() {
 
   let response = null;
   try {
-    response = await fetch(endpoint, { headers });
+    response = await fetch(endpoint, { headers, referrerPolicy: 'no-referrer' });
     const responseText = await response.text();
     let json;
     try {
@@ -543,7 +543,7 @@ async function loadAndRenderFromApi() {
   if (indicator) indicator.style.display = 'none';
 
   // Missing credentials: use the embedded payload immediately.
-  if (!apiBaseUrl || !authToken) {
+  if (!authToken) {
     renderFallbackSeatMap('Missing API base URL or auth token');
     return;
   }
@@ -1279,7 +1279,7 @@ function init() {
     }
   });
 
-  apiBaseUrl = getQueryParam('base_url') || '';
+  apiBaseUrl = ''; // calls go through the vercel.json rewrite (no Origin/Referer)
   authToken = getQueryParam('auth_token') || '';
   qpApiKey = getQueryParam('qp_bot_api_key') || '';
   qpSource = getQueryParam('qp_bot_source') || 'CHATBOTWEB';
@@ -1294,7 +1294,7 @@ function init() {
   totalAmount = amountStr ? parseFloat(amountStr) : 0;
   currencyCode = getQueryParam('currency') || 'INR';
 
-  if (apiBaseUrl && authToken) {
+  if (authToken) {
     loadAndRenderFromApi();
   } else {
     sendLogToSheet({
